@@ -7,6 +7,10 @@
 | AKESI Schools | `data/AKS-MIS-DATA-2026_CJ_Dashboard.xlsx` |
 | Aga Khan Academy, Hyderabad | `data/Aga_HYD_MIS_2026_CJ_Dashboard.xlsx` |
 
+## Open it on any device
+
+**`dist/Facilities_MIS_Dashboard.html`** is one self-contained file (about 2.5 MB). The 3D library, spreadsheet reader, app and both workbooks are all inside it. Copy it to a phone, tablet, laptop, USB drive or shared folder, or attach it to an email or WhatsApp message, and open it in any modern browser. It works offline and needs no server or login. Rebuild it with `python3 tools/build_standalone.py` after updating the data.
+
 ## Use it
 
 Open `app/index.html` in a browser. It needs internet access to load three.js, the spreadsheet reader and the fonts from their CDNs.
@@ -25,6 +29,7 @@ Every figure is read from the workbook's `MIS_Calc` sheet, using the values save
 
 1. Replace or add the `.xlsx` in `data/`. Open and save it in Excel first so formula values are current.
 2. Run `python3 tools/build_workbooks.py` to regenerate `app/workbooks.js`.
+3. Run `python3 tools/build_standalone.py` to rebuild the single file.
 
 ## Files
 
@@ -34,3 +39,5 @@ Every figure is read from the workbook's `MIS_Calc` sheet, using the values save
 - `app/mis-engine.js`: reads both MIS_Calc layouts
 - `app/workbooks.js`: bundled workbooks (generated)
 - `tools/build_workbooks.py`: regenerates `workbooks.js`
+- `tools/build_standalone.py`: builds the single-file `dist/Facilities_MIS_Dashboard.html`
+- `app/vendor/`: three.js r128 and SheetJS 0.18.5, inlined into the single file
