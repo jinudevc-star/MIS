@@ -3,867 +3,583 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FM MIS Console</title>
+<title>Facilities MIS Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: a sticky selector bar styled like the workbook's yellow input cells, then KPI tiles, two chart panels and the scorecard. */
-:root {
-  --bg: #f3f5f4;
-  --surface: #ffffff;
-  --surface-2: #e9eeec;
-  --ink: #15211f;
-  --ink-2: #4b5a57;
-  --line: #d5dcda;
-  --accent: #0f6b62;
-  --accent-soft: #d6ebe7;
-  --cell: #fff3b0;
-  --cell-line: #d9be3a;
-  --good: #1f7a3f;
-  --warn: #b26b00;
-  --bad: #b3261e;
-  --muted-bar: #b9c6c3;
-  --font-ui: "Archivo", "Segoe UI", system-ui, sans-serif;
-  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius: 8px;
-  --glass: rgba(255, 255, 255, .74);
-  --glass-strong: rgba(255, 255, 255, .9);
-  --glass-line: rgba(21, 33, 31, .12);
-  --glow: rgba(15, 107, 98, .28);
+/* ============================================================
+   TOKENS — dark-committed control-room palette.
+   Single visual world (a lit instrument deck in a dark room),
+   so every colour is painted explicitly rather than inherited.
+   Series hues validated: adjacent CVD ΔE 8.4 / normal 19.7,
+   3-series all-pairs CVD ΔE 9.4 / normal 20.9 on surface #0e151c.
+   ============================================================ */
+:root{
+  --void:#060a0e; --deck:#0e151c; --deck-2:#16202b; --deck-3:#1d2a37;
+  --edge:#223140; --edge-2:#2f4354;
+  --ink:#f0f5f9; --ink-2:#9db1c1; --ink-3:#61768a; --ink-4:#3d5061;
+
+  --water:#3987e5; --power:#c98500; --chem:#199e70;
+  --solar:#d95926; --dg:#9085e9;   --street:#d55181;
+  --overview:#7d94a6; --team:#e66767; --bldg:#008300;
+  --hvac:#35b8c9; --service:#d55181;
+
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+
+  --good:#2fbf71; --warn:#e0a63a; --crit:#e05252;
+
+  --metal-hi:#cdd9e2; --metal-mid:#6f8496; --metal-lo:#33444f;
+
+  --accent:var(--water);
+  --r:3px;
+  --rail-h:58px; --dock-h:64px;
+
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1615; --surface: #172120; --surface-2: #1f2c2a; --ink: #e5ecea; --ink-2: #9fb0ac; --line: #2c3b38;
-    --accent: #4fc1b1; --accent-soft: #19403b; --cell: #3b3412; --cell-line: #8f7a1d;
-    --good: #5ccf84; --warn: #f0a63a; --bad: #ff7b6e; --muted-bar: #3c4d4a; --glass: rgba(20, 30, 29, .62); --glass-strong: rgba(18, 27, 26, .86); --glass-line: rgba(160, 220, 210, .14); --glow: rgba(79, 193, 177, .35); color-scheme: dark;
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--void); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+#app{height:100%; display:flex; flex-direction:column; position:relative; isolation:isolate}
+
+/* Deccan eight-point-star (khatim) inlay — the Academy's own geometry,
+   at 3% so it reads as tooling on metal, not wallpaper. */
+#app::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='none' stroke='%23ffffff' stroke-width='1'><rect x='24' y='24' width='72' height='72'/><rect x='24' y='24' width='72' height='72' transform='rotate(45 60 60)'/><circle cx='60' cy='60' r='6'/></g></svg>");
+  background-size:120px 120px; opacity:.035;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%);
+}
+#app::after{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(ellipse 120% 90% at 50% 8%,rgba(57,135,229,.08),transparent 60%),
+             radial-gradient(ellipse 80% 60% at 50% 110%,rgba(0,0,0,.65),transparent 70%);
+}
+
+/* ============================ TOP RAIL ============================ */
+#rail{
+  position:relative; z-index:40; flex:0 0 auto; min-height:var(--rail-h);
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top,0px));
+  background:linear-gradient(180deg,rgba(18,26,35,.96),rgba(10,16,22,.92));
+  border-bottom:1px solid var(--edge);
+  box-shadow:0 1px 0 rgba(205,217,226,.06) inset, 0 10px 30px -18px #000;
+  backdrop-filter:blur(14px);
+}
+.mark{display:flex; align-items:center; gap:10px; min-width:0}
+.mark .glyph{
+  width:30px;height:30px;flex:0 0 auto;border-radius:2px;
+  background:conic-gradient(from 45deg,var(--metal-lo),var(--metal-mid),var(--metal-hi),var(--metal-mid),var(--metal-lo));
+  display:grid;place-items:center;
+  box-shadow:0 0 0 1px var(--edge-2), 0 2px 10px -4px #000;
+}
+.mark .glyph svg{width:18px;height:18px;display:block}
+.mark h1{
+  margin:0; font-family:Archivo,system-ui,sans-serif; font-weight:700;
+  font-size:15px; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
+}
+.mark .sub{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.16em; color:var(--ink-3); text-transform:uppercase; white-space:nowrap;
+}
+.rail-spacer{flex:1 1 auto; min-width:8px}
+
+.selects{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.field{display:flex; flex-direction:column; gap:3px}
+.field label{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.18em; color:var(--ink-3); text-transform:uppercase;
+}
+select{
+  appearance:none; font:inherit; font-size:13px; font-weight:500;
+  color:var(--ink); background:var(--deck-2);
+  border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:6px 30px 6px 10px; cursor:pointer; min-width:132px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%239db1c1' stroke-width='1.4'/></svg>");
+  background-repeat:no-repeat; background-position:right 9px center;
+  box-shadow:0 1px 0 rgba(205,217,226,.07) inset;
+}
+select:hover{border-color:var(--metal-mid)}
+select:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.clock{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
+  color:var(--ink-2); letter-spacing:.06em; font-variant-numeric:tabular-nums;
+  display:flex; flex-direction:column; align-items:flex-end; line-height:1.3;
+}
+.clock b{color:var(--ink); font-weight:600; font-size:14px}
+.live{
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--good);
+  border:1px solid rgba(47,191,113,.35); border-radius:99px; padding:3px 9px;
+  background:rgba(47,191,113,.08); cursor:help;
+}
+.live i{width:6px;height:6px;border-radius:99px;background:var(--good);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(47,191,113,.5)}50%{opacity:.45;box-shadow:0 0 0 5px rgba(47,191,113,0)}}
+
+.btn{
+  font:inherit; font-size:12px; font-weight:500; color:var(--ink-2);
+  background:var(--deck-2); border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:7px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+  box-shadow:0 1px 0 rgba(205,217,226,.07) inset;
+}
+.btn:hover{color:var(--ink); border-color:var(--metal-mid)}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.btn[aria-pressed="true"]{color:var(--void); background:var(--accent); border-color:var(--accent); font-weight:600}
+.btn svg{width:13px;height:13px;display:block}
+
+/* ============================ STAGE ============================ */
+#stage{position:relative; z-index:10; flex:1 1 auto; min-height:0; display:flex}
+#gl{position:absolute; inset:0; width:100%; height:100%; display:block}
+#glfallback{
+  position:absolute; inset:0; display:grid; place-items:center; text-align:center;
+  padding:24px; color:var(--ink-3); font-size:13px;
+}
+
+#hud{
+  position:relative; z-index:20; flex:1 1 auto; min-height:0;
+  display:grid; grid-template-columns:minmax(258px,300px) 1fr minmax(300px,368px);
+  gap:14px; padding:14px 16px; overflow:hidden;
+}
+.col{display:flex; flex-direction:column; gap:12px; min-height:0; overflow:auto; scrollbar-width:thin}
+.col::-webkit-scrollbar{width:6px}
+.col::-webkit-scrollbar-thumb{background:var(--edge-2); border-radius:99px}
+.col-mid{align-items:center; justify-content:space-between; overflow:visible; pointer-events:none}
+
+/* Glass instrument panel with a machined top edge */
+.panel{
+  position:relative; background:linear-gradient(180deg,rgba(22,32,43,.82),rgba(11,17,23,.78));
+  border:1px solid var(--edge); border-radius:var(--r);
+  backdrop-filter:blur(16px) saturate(1.1);
+  box-shadow:0 18px 44px -28px #000;
+}
+.panel::before{
+  content:""; position:absolute; left:8px; right:8px; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(205,217,226,.34),transparent);
+}
+.panel>header{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 12px; border-bottom:1px solid var(--edge);
+}
+.panel>header h2{
+  margin:0; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); font-weight:500;
+}
+.panel>header .hint{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.12em; color:var(--ink-4); text-transform:uppercase;
+}
+.panel .body{padding:12px}
+
+/* ---------- module title block (centre stage, top) ---------- */
+.stage-title{
+  pointer-events:none; text-align:center; padding-top:4px;
+  text-shadow:0 2px 24px rgba(0,0,0,.85);
+}
+.stage-title .eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.34em; text-transform:uppercase; color:var(--accent);
+}
+.stage-title h2{
+  margin:4px 0 0; font-family:Archivo,system-ui,sans-serif; font-weight:800;
+  font-size:clamp(24px,4.2vw,46px); letter-spacing:.02em; text-wrap:balance; line-height:1.02;
+}
+.stage-title p{
+  margin:6px auto 0; max-width:62ch; color:var(--ink-2); font-size:13px;
+}
+
+/* ---------- hero readout under the scene ---------- */
+.hero{
+  pointer-events:auto; display:flex; align-items:flex-end; justify-content:center;
+  gap:clamp(12px,2.6vw,34px); flex-wrap:wrap;
+  padding:14px clamp(14px,3vw,30px) 12px;
+  border-radius:var(--r); position:relative;
+  background:linear-gradient(180deg,rgba(6,10,14,0),rgba(6,10,14,.84) 28%,rgba(6,10,14,.92));
+  box-shadow:0 -30px 46px -22px rgba(6,10,14,.95);
+}
+.hero::before{
+  content:""; position:absolute; left:10%; right:10%; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(205,217,226,.18),transparent);
+}
+.hero .unit-group{text-align:center; min-width:96px}
+.hero .cap{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ink-3); white-space:nowrap;
+}
+.hero .val{
+  font-family:Archivo,system-ui,sans-serif; font-weight:700; font-variant-numeric:tabular-nums;
+  font-size:clamp(22px,3.4vw,38px); line-height:1.05; letter-spacing:-.01em;
+  text-shadow:0 0 28px rgba(0,0,0,.9);
+}
+.hero .val small{font-size:.44em; font-weight:600; color:var(--ink-2); margin-left:4px; letter-spacing:.04em}
+.hero .val.is-name{font-size:clamp(15px,1.7vw,22px); font-weight:600; letter-spacing:0; max-width:19ch; line-height:1.2}
+.hero .delta{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px; font-variant-numeric:tabular-nums;
+  margin-top:2px;
+}
+.up{color:var(--crit)} .down{color:var(--good)} .flat{color:var(--ink-3)}
+.good{color:var(--good)} .warn{color:var(--warn)} .crit{color:var(--crit)}
+
+/* ---------- readout rows ---------- */
+.rows{display:flex; flex-direction:column; gap:1px; background:var(--edge); border-radius:2px; overflow:hidden}
+.row{
+  display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px;
+  padding:7px 10px; background:var(--deck); font-size:12.5px;
+}
+.row .k{color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.row .v{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;
+  font-weight:500; color:var(--ink); white-space:nowrap;
+}
+.row .v em{font-style:normal; color:var(--ink-3); font-size:10px; margin-left:3px}
+
+/* severity stripe — state readable without colour alone (stripe + label) */
+.row.sev{border-left:2px solid transparent}
+.row.sev-good{border-left-color:var(--good)}
+.row.sev-warn{border-left-color:var(--warn)}
+.row.sev-crit{border-left-color:var(--crit)}
+
+.chip{
+  display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:99px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.12em; text-transform:uppercase; border:1px solid currentColor;
+}
+.chip i{width:5px;height:5px;border-radius:99px;background:currentColor;flex:0 0 auto}
+
+/* ---------- gauges ---------- */
+.gauges{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:10px}
+.gauge{text-align:center}
+.gauge svg{width:100%; height:auto; max-width:132px; display:block; margin:0 auto}
+.gauge .g-cap{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin-top:2px;
+}
+
+/* ---------- charts ---------- */
+.chart{width:100%; display:block; overflow:visible}
+.chart text{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; fill:var(--ink-3); letter-spacing:.06em}
+.chart .axis-line{stroke:var(--edge-2); stroke-width:1}
+.chart .grid{stroke:var(--edge); stroke-width:1; stroke-dasharray:2 4}
+.chart .lbl-val{fill:var(--ink); font-weight:600; font-size:10px}
+.chart .bench{stroke:var(--warn); stroke-width:1.5; stroke-dasharray:4 3}
+.chart .hit{fill:transparent; cursor:crosshair}
+.chart .crosshair{stroke:var(--ink-4); stroke-width:1; stroke-dasharray:3 3}
+.legend{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:8px}
+.legend span{
+  display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2);
+}
+.legend i{width:9px;height:9px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px var(--deck)}
+.nodata{
+  display:grid; place-items:center; min-height:96px; border:1px dashed var(--edge-2);
+  border-radius:2px; color:var(--ink-3); font-size:12px; text-align:center; padding:12px;
+}
+.tip{
+  position:fixed; z-index:120; pointer-events:none; opacity:0; transition:opacity .12s;
+  background:rgba(8,13,18,.97); border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:8px 10px; font-size:12px; color:var(--ink); min-width:130px;
+  box-shadow:0 14px 34px -14px #000;
+}
+.tip b{display:block; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:500; margin-bottom:5px}
+.tip .tr{display:flex; align-items:center; justify-content:space-between; gap:14px; font-variant-numeric:tabular-nums}
+.tip .tr i{width:8px;height:8px;border-radius:2px;margin-right:6px;display:inline-block}
+.tip .tr span:last-child{font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:500}
+
+/* ---------- ranked bars ---------- */
+.rank{display:flex; flex-direction:column; gap:6px}
+.rank .item{display:grid; grid-template-columns:1fr; gap:3px}
+.rank .top{display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:12px}
+.rank .nm{color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rank .vv{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; color:var(--ink); font-weight:500}
+.rank .track{height:6px; background:var(--deck-3); border-radius:0 3px 3px 0; overflow:hidden}
+.rank .fill{height:100%; border-radius:0 3px 3px 0; transition:width .6s cubic-bezier(.22,1,.36,1)}
+
+/* ---------- telemetry strip ---------- */
+.telem{display:flex; flex-direction:column; gap:8px}
+.telem .t-row{display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center}
+.telem .t-nm{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-3); width:62px}
+.telem canvas{width:100%; height:26px; display:block}
+.telem .t-v{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px;
+  font-variant-numeric:tabular-nums; color:var(--ink); min-width:74px; text-align:right}
+
+/* ============================ DOCK ============================ */
+#dock{
+  position:relative; z-index:40; flex:0 0 auto;
+  display:flex; align-items:center; gap:10px; padding:8px 16px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(0deg,rgba(18,26,35,.96),rgba(10,16,22,.9));
+  border-top:1px solid var(--edge);
+  box-shadow:0 -1px 0 rgba(205,217,226,.06) inset;
+  backdrop-filter:blur(14px); overflow-x:auto; scrollbar-width:none;
+}
+#dock::-webkit-scrollbar{display:none}
+.tabs{display:flex; gap:6px; flex:1 1 auto}
+.tab{
+  position:relative; font:inherit; font-size:11.5px; color:var(--ink-2);
+  background:var(--deck); border:1px solid var(--edge); border-radius:var(--r);
+  padding:7px 12px 7px 10px; cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:8px; transition:color .18s,border-color .18s;
+}
+.tab svg{width:14px;height:14px;display:block;flex:0 0 auto}
+@media (max-width:1320px){ .tab span:last-child{display:none} .tab{padding:7px 9px} }
+@media (max-width:900px){ .tab span:last-child{display:inline} }
+.tab .dotc{width:7px;height:7px;border-radius:99px;flex:0 0 auto}
+.tab:hover{color:var(--ink); border-color:var(--metal-mid)}
+.tab:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.tab[aria-selected="true"]{
+  color:var(--ink); border-color:currentColor;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent);
+}
+.tab[aria-selected="true"]::after{
+  content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:2px;
+  background:currentColor; box-shadow:0 0 12px currentColor;
+}
+#progress{
+  position:absolute; left:0; bottom:0; height:2px; width:0%;
+  background:var(--accent); box-shadow:0 0 10px var(--accent); transition:width .25s linear;
+}
+
+/* ============================ MOTION ============================ */
+.col>.panel{animation:rise .5s cubic-bezier(.22,1,.36,1) both}
+.col>.panel:nth-child(2){animation-delay:.05s}
+.col>.panel:nth-child(3){animation-delay:.1s}
+.col>.panel:nth-child(4){animation-delay:.15s}
+@keyframes rise{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+.stage-title{animation:rise .55s cubic-bezier(.22,1,.36,1) both}
+.hero{animation:rise .6s .08s cubic-bezier(.22,1,.36,1) both}
+#hud.swapping .col,#hud.swapping .stage-title,#hud.swapping .hero{
+  opacity:0; transform:translateY(-10px); transition:opacity .22s,transform .22s;
+}
+
+/* sweep that runs across the stage on a module change */
+#sweep{
+  position:absolute; inset:0; z-index:30; pointer-events:none; opacity:0;
+  background:linear-gradient(105deg,transparent 42%,rgba(205,217,226,.16) 50%,transparent 58%);
+}
+#sweep.go{animation:sweep .62s cubic-bezier(.4,0,.2,1)}
+@keyframes sweep{0%{opacity:0;transform:translateX(-45%)}25%{opacity:1}100%{opacity:0;transform:translateX(45%)}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width:1180px){
+  #hud{grid-template-columns:minmax(230px,1fr) 1.15fr minmax(250px,1fr); gap:10px; padding:10px 12px}
+}
+@media (max-width:900px){
+  body{overflow:auto}
+  #app{height:auto; min-height:100%}
+  #stage{min-height:auto}
+  #gl{position:absolute; top:0; left:0; right:0; width:100%; height:56vh; max-height:460px}
+  #hud{
+    grid-template-columns:1fr; grid-template-rows:auto auto auto;
+    overflow:visible; padding:12px 16px; gap:12px;
   }
+  .col{overflow:visible}
+  .col-mid{order:-1; min-height:50vh; justify-content:flex-start; gap:18px}
+  .col-mid .hero{margin-top:auto}
+  #dock{position:sticky; bottom:0}
+  .rail-spacer{flex-basis:100%; min-width:0; height:0}
 }
-:root[data-theme="dark"] {
-  --bg: #0f1615; --surface: #172120; --surface-2: #1f2c2a; --ink: #e5ecea; --ink-2: #9fb0ac; --line: #2c3b38;
-  --accent: #4fc1b1; --accent-soft: #19403b; --cell: #3b3412; --cell-line: #8f7a1d;
-  --good: #5ccf84; --warn: #f0a63a; --bad: #ff7b6e; --muted-bar: #3c4d4a; --glass: rgba(20, 30, 29, .62); --glass-strong: rgba(18, 27, 26, .86); --glass-line: rgba(160, 220, 210, .14); --glow: rgba(79, 193, 177, .35); color-scheme: dark;
+@media (max-width:560px){
+  .mark h1{font-size:13px; letter-spacing:.1em}
+  .mark .sub{display:none}
+  select{min-width:110px; font-size:12px}
+  .hero{gap:14px}
+  #gl{height:52vh; max-height:380px}
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font-ui); }
-#scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; pointer-events: none; }
-.veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; background:
-  radial-gradient(ellipse 80% 60% at 50% 0%, transparent 0%, transparent 55%, var(--bg) 120%),
-  linear-gradient(180deg, transparent 0%, transparent 40%, color-mix(in srgb, var(--bg) 55%, transparent) 100%); }
-main { position: relative; z-index: 1; }
-.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 16px; }
-h1, h2, h3 { text-wrap: balance; margin: 0; }
-button, select, input { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Selector bar */
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--glass); border-bottom: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); }
-.bar .wrap { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; padding-block: 10px; }
-.field { display: grid; gap: 3px; min-width: 0; }
-.field label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
-.field select { background: var(--cell); border: 1px solid var(--cell-line); border-radius: 3px; padding: 6px 28px 6px 8px; font-weight: 600; max-width: 100%; }
-.field.file select { min-width: min(320px, 100%); }
-.spacer { flex: 1 1 0; }
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 6px 12px; cursor: pointer; font-weight: 600; }
-.btn:hover { border-color: var(--accent); color: var(--accent); }
-.tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: var(--radius); }
-.tabs button { border: 0; background: transparent; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; color: var(--ink-2); }
-.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-
-/* Header */
-.head { padding-block: 44px 18px; display: grid; gap: 8px; text-shadow: 0 1px 18px var(--bg); }
-.head h1 { background: linear-gradient(100deg, var(--ink) 0%, var(--ink) 40%, var(--accent) 50%, var(--ink) 60%, var(--ink) 100%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sheen 9s ease-in-out infinite; text-shadow: none; }
-@keyframes sheen { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0% 0; } }
-.scene-cap { display: inline-flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; font-size: 12px; color: var(--ink-2); background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px; padding: 4px 12px 4px 8px; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); text-shadow: none; }
-.scene-cap i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--glow); animation: ping 2s ease-out infinite; flex: none; }
-@keyframes ping { 0% { box-shadow: 0 0 0 0 var(--glow); } 100% { box-shadow: 0 0 0 10px transparent; } }
-.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
-.head h1 { font-size: clamp(24px, 4vw, 42px); font-stretch: 85%; font-weight: 800; letter-spacing: -.01em; }
-.head p { margin: 0; color: var(--ink-2); max-width: 90ch; }
-.showing { font-family: var(--font-num); font-size: 13px; color: var(--ink-2); }
-
-section { padding-block: 14px; }
-.section-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 10px; }
-.section-title h2 { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.section-title span { color: var(--ink-2); font-size: 13px; }
-
-/* KPI tiles */
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 10px; }
-.kpi { position: relative; background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px)); transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; will-change: transform; border-radius: var(--radius); padding: 12px 12px 10px 15px; display: grid; gap: 4px; text-align: left; cursor: pointer; min-width: 0; }
-.kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: var(--radius) 0 0 var(--radius); background: var(--muted-bar); }
-.kpi[data-state="good"]::before { background: var(--good); }
-.kpi[data-state="warn"]::before { background: var(--warn); }
-.kpi[data-state="bad"]::before { background: var(--bad); }
-.kpi:hover { --lift: -3px; box-shadow: 0 12px 30px -12px var(--glow); }
-.kpi[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 14px 40px -14px var(--glow); }
-.kpi::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), var(--glow), transparent 60%); opacity: 0; transition: opacity .3s; }
-.kpi:hover::after { opacity: .55; }
-.kpi .lab { font-size: 12px; font-weight: 600; color: var(--ink-2); display: flex; gap: 6px; align-items: center; justify-content: space-between; }
-.kpi .val { font-family: var(--font-num); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
-.kpi .unit { font-size: 12px; color: var(--ink-2); font-family: var(--font-ui); font-weight: 500; margin-left: 4px; }
-.kpi .sub { font-size: 12px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 2px 8px; }
-.kpi svg { width: 100%; height: 26px; display: block; }
-.tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-.up-good, .down-good { color: var(--good); }
-.up-bad, .down-bad { color: var(--bad); }
-
-/* Panels */
-.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
-@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
-.panel { background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); border-radius: var(--radius); padding: 14px; min-width: 0; display: grid; gap: 10px; align-content: start; }
-.panel-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
-.panel-head h3 { font-size: 15px; font-weight: 700; }
-.panel-head select { background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; flex: 0 1 260px; width: 260px; min-width: 0; max-width: 100%; }
-.chart-box { position: relative; height: 290px; }
-.chart-box.tall { height: 360px; }
-.note { font-size: 12px; color: var(--ink-2); margin: 0; }
-.empty { display: grid; place-items: center; min-height: 160px; color: var(--ink-2); text-align: center; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius); }
-
-/* Tables */
-.table-wrap { overflow-x: auto; border: 1px solid var(--glass-line); border-radius: var(--radius); background: var(--glass-strong); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: inherit; }
-thead th { background: var(--surface-2); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); cursor: pointer; user-select: none; }
-tbody tr { background: transparent; }
-th:first-child, td:first-child { background: var(--glass-strong); }
-tbody tr.sel td:first-child { background: var(--accent-soft); }
-tbody tr:hover { background: var(--surface-2); }
-tbody tr.sel { background: var(--accent-soft); font-weight: 600; }
-tbody tr.total { font-weight: 700; background: var(--surface-2); }
-td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-td:first-child { font-family: var(--font-ui); }
-td.dim { color: var(--ink-2); }
-
-/* Watchlist + findings */
-.list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.list li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-radius: var(--radius); padding: 8px 10px; }
-.chip { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; color: var(--surface); }
-.chip.good { background: var(--good); } .chip.warn { background: var(--warn); } .chip.bad { background: var(--bad); }
-.list .fig { font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink-2); }
-.findings { margin: 0; padding: 14px 14px 14px 34px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--radius); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); display: grid; gap: 8px; max-width: 110ch; }
-.findings li { padding-left: 4px; }
-.status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
-
-/* Sheets */
-.sheet-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-.sheet-tools input { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 6px 8px; min-width: 0; width: min(320px, 100%); }
-.sheet-table { max-height: 70vh; overflow: auto; }
-.sheet-table table { font-size: 12px; }
-.sheet-table th, .sheet-table td { text-align: left; border-right: 1px solid var(--line); max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
-.sheet-table thead th { position: sticky; top: 0; z-index: 1; cursor: default; text-transform: none; letter-spacing: 0; }
-.sheet-table td.rn, .sheet-table th.rn { color: var(--ink-2); background: var(--surface-2); text-align: right; }
-.sheet-table td.n { text-align: right; }
-mark { background: var(--cell); color: inherit; }
-
-.toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: var(--radius); font-size: 13px; z-index: 20; }
-.loading { padding: 60px 16px; text-align: center; color: var(--ink-2); }
-footer { padding-block: 24px 40px; color: var(--ink-2); font-size: 12px; text-shadow: 0 0 12px var(--bg); }
-@media (max-width: 600px) {
-  .bar { position: relative; }
-  .bar .wrap { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
-  .field.file { grid-column: 1 / -1; } .field.file select { min-width: 0; width: 100%; }
-  .field select { width: 100%; }
-  .spacer { display: none; }
-  .bar .btn { text-align: center; }
+/* screen-reader-only */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+table.data{width:100%; border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums}
+table.data th,table.data td{padding:4px 7px; border-bottom:1px solid var(--edge); text-align:right; white-space:nowrap}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.heat td{border-bottom:none;padding:0 1px}
+table.heat th{position:sticky;top:0;background:var(--deck);z-index:1}
+table.heat td:first-child{padding:2px 8px 2px 0;color:var(--ink-2)}
+table.data th{color:var(--ink-3); font-weight:500; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:9px; letter-spacing:.12em; text-transform:uppercase}
+.scrollx{overflow-x:auto}
+details.tbl{margin-top:10px}
+details.tbl>summary{
+  cursor:pointer; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); list-style:none;
 }
-@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi .val { font-size: 19px; } .chart-box { height: 240px; } }
-@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
-.enter > * { animation: rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
-.kpi.enter-kpi { animation: rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
-.val.flash { animation: flash .7s ease-out; }
-@keyframes flash { 0% { text-shadow: 0 0 0 transparent; } 30% { text-shadow: 0 0 18px var(--glow); } 100% { text-shadow: 0 0 0 transparent; } }
-::view-transition-old(root) { animation: vt-out .35s cubic-bezier(.4, 0, .2, 1) both; }
-::view-transition-new(root) { animation: vt-in .55s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes vt-out { to { opacity: 0; transform: scale(.985); filter: blur(6px); } }
-@keyframes vt-in { from { opacity: 0; transform: scale(1.015); filter: blur(6px); } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; } }
+details.tbl>summary::-webkit-details-marker{display:none}
+details.tbl>summary::before{content:"▸ "; color:var(--ink-4)}
+details.tbl[open]>summary::before{content:"▾ "}
+details.tbl>summary:hover{color:var(--ink-2)}
+/* ============================ ADDITIONS FOR THE TWO-WORKBOOK DECK ============================ */
+[hidden]{display:none!important}
+.field select#sel-book{min-width:200px}
+@media (max-width:1680px){ #rail .btn .lbl{display:none} #rail .btn{padding:7px 9px} .clock{display:none} }
+.hero{gap:clamp(10px,2vw,28px)}
+.hero .val{font-size:clamp(20px,2.7vw,34px)}
+.hero .unit-group{min-width:84px}
+.field select#sel-ent{min-width:160px}
+.rank .item[data-ent]{cursor:pointer}
+.rank .item[data-ent]:hover .nm{color:var(--ink)}
+.rank .item.sel .nm{color:var(--ink); font-weight:600}
+.rank .item.sel .nm::before{content:"◆ "; color:var(--accent)}
+table.data.score tbody tr{cursor:pointer}
+table.data.score tbody tr:hover td{background:rgba(255,255,255,.03)}
+table.data.score tbody tr.sel td{background:rgba(255,255,255,.07); color:var(--ink); font-weight:600}
+table.data.score tbody tr.tot td{color:var(--ink); font-weight:600; border-top:1px solid var(--edge-2)}
+table.data.score td{color:var(--ink-2)}
+.findings{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px; font-size:12px; color:var(--ink-2); line-height:1.5}
+.scope{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
+.btn.file{position:relative}
+.btn.file input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%}
+
+/* sheet viewer overlay */
+#sheets{
+  position:fixed; inset:0; z-index:90; display:flex; flex-direction:column;
+  background:rgba(6,10,14,.82); backdrop-filter:blur(10px);
+  padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(14px + env(safe-area-inset-bottom,0px));
+  animation:rise .35s cubic-bezier(.22,1,.36,1) both;
+}
+#sheets .panel{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+#sheets .tools{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:12px; border-bottom:1px solid var(--edge)}
+#sheets input[type=search]{
+  font:inherit; font-size:13px; color:var(--ink); background:var(--deck-2); border:1px solid var(--edge-2);
+  border-radius:var(--r); padding:6px 10px; width:min(320px,100%);
+}
+#sheets input[type=search]:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+#sheet-wrap{flex:1 1 auto; min-height:0; overflow:auto}
+#sheet-wrap table{border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums}
+#sheet-wrap th,#sheet-wrap td{padding:4px 8px; border:1px solid var(--edge); white-space:nowrap; max-width:380px; overflow:hidden; text-overflow:ellipsis; text-align:left; color:var(--ink-2)}
+#sheet-wrap thead th{position:sticky; top:0; z-index:1; background:var(--deck-2); color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:500; font-size:9.5px}
+#sheet-wrap td.rn,#sheet-wrap th.rn{position:sticky; left:0; background:var(--deck-2); color:var(--ink-3); text-align:right; font-family:"IBM Plex Mono",ui-monospace,monospace}
+#sheet-wrap td.n{text-align:right; font-family:"IBM Plex Mono",ui-monospace,monospace; color:var(--ink)}
+#sheet-wrap mark{background:rgba(224,166,58,.35); color:var(--ink)}
+#toast{
+  position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:130;
+  background:rgba(8,13,18,.97); border:1px solid var(--edge-2); border-radius:var(--r); padding:8px 14px; font-size:12.5px; color:var(--ink);
+  box-shadow:0 14px 34px -14px #000;
+}
+@media (max-width:560px){ .field select#sel-book,.field select#sel-ent{min-width:0; max-width:calc(100vw - 40px)} }
 </style>
 </head>
 <body>
-<canvas id="scene" aria-hidden="true"></canvas>
-<div class="veil" aria-hidden="true"></div>
 
-<div class="bar">
-  <div class="wrap">
-    <div class="field file">
-      <label for="selFile">Workbook</label>
-      <select id="selFile"></select>
+<div id="app">
+
+  <header id="rail">
+    <div class="mark">
+      <span class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0b1116" stroke-width="1.6">
+          <rect x="5" y="5" width="14" height="14"/>
+          <rect x="5" y="5" width="14" height="14" transform="rotate(45 12 12)"/>
+        </svg>
+      </span>
+      <div>
+        <h1>Command Deck</h1>
+        <div class="sub" id="mark-sub">Facilities MIS · 2026</div>
+      </div>
     </div>
-    <div class="field">
-      <label for="selMonth">📅 Month</label>
-      <select id="selMonth"></select>
+
+    <div class="selects">
+      <div class="field">
+        <label for="sel-book">Workbook</label>
+        <select id="sel-book"></select>
+      </div>
+      <div class="field">
+        <label for="sel-month">Reporting period</label>
+        <select id="sel-month"></select>
+      </div>
+      <div class="field">
+        <label for="sel-ent" id="lbl-ent">School</label>
+        <select id="sel-ent"></select>
+      </div>
     </div>
-    <div class="field">
-      <label for="selEntity" id="lblEntity">🏫 School</label>
-      <select id="selEntity"></select>
+
+    <span class="rail-spacer"></span>
+
+    <span class="live" id="live-badge" title="Sub-minute telemetry is modelled from the selected period's metered totals. It shows the shape of demand, not a meter read.">
+      <i></i> Live feed
+    </span>
+
+    <div class="clock" aria-hidden="true">
+      <b id="clock-time">--:--:--</b>
+      <span id="clock-date">—</span>
     </div>
-    <div class="spacer"></div>
-    <div class="tabs" role="tablist">
-      <button role="tab" id="tabDash" aria-selected="true" data-view="dash">Dashboard</button>
-      <button role="tab" id="tabSheets" aria-selected="false" data-view="sheets">Sheets</button>
+
+    <button class="btn" id="btn-sheets" title="Browse every sheet of this workbook (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>
+      <span class="lbl">Sheets</span>
+    </button>
+    <label class="btn file" title="Add another MIS workbook (.xlsx) for this session">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="lbl">Workbook</span>
+      <input id="upload" type="file" accept=".xlsx,.xlsm,.xls" multiple>
+    </label>
+    <button class="btn" id="btn-auto" aria-pressed="false" title="Auto-advance the modules (A)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18l15-9z"/></svg>
+      <span id="auto-label">Present</span>
+    </button>
+    <button class="btn" id="btn-full" title="Full screen (F)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span class="sr">Full screen</span>
+    </button>
+  </header>
+
+  <main id="stage">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div id="glfallback" hidden>3-D stage unavailable in this browser. Every figure below is still live.</div>
+    <div id="sweep" aria-hidden="true"></div>
+
+    <div id="hud">
+      <section class="col col-left" id="col-left" aria-live="polite"></section>
+
+      <section class="col col-mid">
+        <div class="stage-title">
+          <div class="eyebrow" id="mod-eyebrow">Loading</div>
+          <h2 id="mod-title">Reading workbooks…</h2>
+          <p id="mod-lede"></p>
+        </div>
+        <div class="hero" id="hero"></div>
+      </section>
+
+      <section class="col col-right" id="col-right"></section>
     </div>
-    <label class="btn" for="upload" title="Add another MIS workbook (.xlsx) to the Workbook list">Add workbook…</label>
-    <input id="upload" type="file" accept=".xlsx,.xlsm,.xls" hidden multiple>
+  </main>
+
+  <nav id="dock" aria-label="Modules">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="progress"></div>
+  </nav>
+
+  <div class="tip" id="tip" role="status" aria-live="off"></div>
+
+  <div id="sheets" hidden>
+    <section class="panel">
+      <header><h2>Workbook sheets</h2><button class="btn" id="btn-close-sheets" title="Close (Esc)">Close</button></header>
+      <div class="tools">
+        <div class="field"><label for="sel-sheet">Sheet</label><select id="sel-sheet"></select></div>
+        <div class="field" style="flex:1 1 220px"><label for="sheet-filter">Filter rows</label><input id="sheet-filter" type="search" placeholder="Type to show matching rows"></div>
+        <span class="hint scope" id="sheet-info"></span>
+      </div>
+      <div id="sheet-wrap"><table id="sheet"></table></div>
+    </section>
   </div>
+  <div id="toast" hidden></div>
 </div>
 
-<main class="wrap">
-  <div id="loading" class="loading">Reading workbooks…</div>
-
-  <div id="viewDash" hidden>
-    <header class="head">
-      <div class="eyebrow" id="hOrg"></div>
-      <h1 id="hTitle"></h1>
-      <p id="hSub"></p>
-      <div class="showing" id="hShowing"></div>
-      <div class="scene-cap" id="sceneCap" hidden><i></i><span id="sceneText"></span></div>
-    </header>
-
-    <section id="secKpis">
-      <div class="section-title"><h2>Key figures</h2><span id="kpiNote">Select a tile to chart it below.</span></div>
-      <div class="kpis" id="kpis"></div>
-    </section>
-
-    <section class="grid2" id="secCharts">
-      <div class="panel">
-        <div class="panel-head">
-          <h3 id="trendTitle">Monthly trend</h3>
-          <select id="selMetric" aria-label="Metric to chart"></select>
-        </div>
-        <div class="chart-box"><canvas id="trendChart"></canvas></div>
-        <p class="note" id="trendNote"></p>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3 id="rankTitle">Ranking</h3></div>
-        <div class="chart-box tall" id="rankBox"><canvas id="rankChart"></canvas></div>
-        <p class="note" id="rankNote"></p>
-      </div>
-    </section>
-
-    <section id="secScore">
-      <div class="section-title"><h2 id="scoreTitle">Scorecard</h2><span>Select a row to drill into it. Select a heading to sort.</span></div>
-      <div class="table-wrap"><table id="score"></table></div>
-    </section>
-
-    <section id="secStatus" hidden>
-      <div class="status-grid" id="status"></div>
-    </section>
-
-    <section class="grid2" id="secNotes">
-      <div>
-        <div class="section-title"><h2>Watchlist</h2><span>Follows the month and selection</span></div>
-        <ul class="list" id="watch"></ul>
-      </div>
-      <div>
-        <div class="section-title"><h2>Data-quality findings</h2><span>As written in the workbook</span></div>
-        <ol class="findings" id="findings"></ol>
-      </div>
-    </section>
-    <footer id="sources"></footer>
-  </div>
-
-  <div id="viewSheets" hidden>
-    <section>
-      <div class="sheet-tools">
-        <div class="field"><label for="selSheet">Sheet</label><select id="selSheet"></select></div>
-        <div class="field" style="flex:1 1 220px"><label for="sheetFilter">Filter rows</label><input id="sheetFilter" type="search" placeholder="Type to show matching rows only"></div>
-        <span class="note" id="sheetInfo"></span>
-      </div>
-    </section>
-    <div class="table-wrap sheet-table"><table id="sheet"></table></div>
-  </div>
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="mis-engine.js"></script>
-<script src="scene3d.js"></script>
 <script src="workbooks.js"></script>
-<script>
-(function () {
-  'use strict';
-  var E = window.MISEngine;
-  var books = [];            // { id, label, model }
-  var state = { book: 0, month: null, entity: '', focus: null, view: 'dash', sheet: 0, sortCol: null, sortDir: -1 };
-  var charts = {};
-  var $ = function (id) { return document.getElementById(id); };
-
-  // ---------- storage (per-viewer convenience only) ----------
-  function load(k) { try { return JSON.parse(localStorage.getItem('fm-mis:' + k)); } catch (e) { return null; } }
-  function save(k, v) { try { localStorage.setItem('fm-mis:' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } }
-
-  // ---------- formatting ----------
-  var nf0 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
-  var nf1 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  var nf2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  function isPct(m) { return /^%/.test(m.unit); }
-  function fmt(v, m) {
-    if (v === null || v === undefined || !isFinite(v)) return '–';
-    if (m && isPct(m)) return nf1.format(v * 100) + '%';
-    if (m && m.unit === 'ratio') return v.toFixed(3);
-    var a = Math.abs(v);
-    if (a >= 1000) return nf0.format(v);
-    if (a >= 100 || Number.isInteger(v)) return nf0.format(v);
-    if (a >= 10) return nf1.format(v);
-    return nf2.format(v);
-  }
-  function unitOf(m) { return isPct(m) ? m.unit.replace(/^%\s*/, '') : (m.unit === 'ratio' ? '' : m.unit); }
-  function pct(d) { return (d > 0 ? '+' : '') + Math.round(d * 100) + '%'; }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-  function toast(msg) {
-    var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 3200);
-  }
-
-  // ---------- loading ----------
-  function b64ToBytes(b64) {
-    var bin = atob(b64), out = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  }
-  function addBook(bytes, fileName) {
-    var wb = XLSX.read(bytes, { type: 'array', cellDates: false });
-    var model = E.parseWorkbook(XLSX, wb, fileName);
-    var base = (model.org ? model.org + ' — ' : '') + (model.title.split('|')[0].trim() || fileName);
-    var label = base.replace(/\s+/g, ' ');
-    if (books.some(function (b) { return b.label === label; })) label += ' (' + fileName + ')';
-    books.push({ id: fileName, label: label, model: model });
-    return books.length - 1;
-  }
-
-  function init() {
-    if (!window.XLSX || !E) { $('loading').textContent = 'The spreadsheet reader could not load. Check the internet connection and reload the page.'; return; }
-    (window.MIS_WORKBOOKS || []).forEach(function (w) {
-      try { addBook(b64ToBytes(w.data), w.file); } catch (e) { console.error(e); toast('Could not read ' + w.file); }
-    });
-    var saved = load('state') || {};
-    var idx = books.findIndex(function (b) { return b.id === saved.book; });
-    state.book = idx >= 0 ? idx : 0;
-    state.view = saved.view === 'sheets' ? 'sheets' : 'dash';
-    $('loading').hidden = true;
-    if (!books.length) { $('loading').hidden = false; $('loading').textContent = 'No workbook loaded. Use “Add workbook…” to open an MIS .xlsx file.'; return; }
-    fillFileSelect();
-    selectBook(state.book, saved);
-    setView(state.view);
-  }
-
-  function fillFileSelect() {
-    $('selFile').innerHTML = books.map(function (b, i) { return '<option value="' + i + '">' + esc(b.label) + '</option>'; }).join('');
-    $('selFile').value = String(state.book);
-  }
-
-  function model() { return books[state.book].model; }
-
-  function selectBook(i, restore) {
-    state.book = i;
-    var m = model();
-    restore = restore && restore.book === books[i].id ? restore : {};
-    // Month list: months up to the latest with data, then YTD.
-    var opts = [];
-    for (var k = 0; k <= Math.max(m.latestIdx, 0); k++) opts.push('<option value="' + k + '">' + m.months[k] + '</option>');
-    if (m.latestIdx >= 0) opts.push('<option value="ytd">2026 YTD</option>');
-    $('selMonth').innerHTML = opts.join('');
-    state.month = restore.month !== undefined && restore.month !== null && (restore.month === 'ytd' || restore.month <= m.latestIdx) ? restore.month : Math.max(m.latestIdx, 0);
-    $('selMonth').value = String(state.month);
-    $('selMonth').disabled = m.latestIdx < 0;
-
-    // Entity list (grouped for facilities).
-    $('lblEntity').textContent = (m.entityLabel === 'Facility' ? '🏢 ' : '🏫 ') + (m.entityLabel || 'Entity');
-    var eo = '<option value="">' + esc(m.allLabel || 'All') + '</option>';
-    if (m.entityGroups) {
-      var byGroup = {};
-      m.entities.forEach(function (e) { var g = m.entityGroups[e] || 'Other'; (byGroup[g] = byGroup[g] || []).push(e); });
-      Object.keys(byGroup).forEach(function (g) {
-        eo += '<optgroup label="' + esc(g) + '">' + byGroup[g].map(function (e) { return '<option>' + esc(e) + '</option>'; }).join('') + '</optgroup>';
-      });
-    } else eo += m.entities.map(function (e) { return '<option>' + esc(e) + '</option>'; }).join('');
-    $('selEntity').innerHTML = eo;
-    state.entity = restore.entity && m.entities.indexOf(restore.entity) >= 0 ? restore.entity : '';
-    $('selEntity').value = state.entity;
-    $('selEntity').disabled = !m.entities.length;
-
-    // Metric list for the trend chart.
-    var groups = {};
-    m.metricOrder.forEach(function (k) { var mt = m.metrics[k]; (groups[mt.group] = groups[mt.group] || []).push(mt); });
-    $('selMetric').innerHTML = Object.keys(groups).map(function (g) {
-      return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (mt) {
-        return '<option value="' + mt.key + '">' + esc(mt.label) + (unitOf(mt) ? ' (' + esc(unitOf(mt)) + ')' : '') + '</option>';
-      }).join('') + '</optgroup>';
-    }).join('');
-    state.focus = restore.focus && m.metrics[restore.focus] ? restore.focus : m.defaultFocus;
-    state.sortCol = null;
-
-    // Sheets.
-    $('selSheet').innerHTML = m.sheets.map(function (s, j) { return '<option value="' + j + '">' + esc(s.name) + '</option>'; }).join('');
-    var sj = m.sheets.findIndex(function (s) { return s.name === restore.sheet; });
-    state.sheet = sj >= 0 ? sj : 0;
-    $('selSheet').value = String(state.sheet);
-    $('sheetFilter').value = '';
-
-    if (m.layout === 'sheets' && state.view === 'dash') setView('sheets');
-    $('tabDash').disabled = m.layout === 'sheets';
-    render();
-  }
-
-  function persist() {
-    var m = model();
-    save('state', { book: books[state.book].id, month: state.month, entity: state.entity, focus: state.focus, view: state.view, sheet: m.sheets[state.sheet] && m.sheets[state.sheet].name });
-  }
-
-  function setView(v) {
-    state.view = v;
-    $('viewDash').hidden = v !== 'dash';
-    $('viewSheets').hidden = v !== 'sheets';
-    $('tabDash').setAttribute('aria-selected', v === 'dash');
-    $('tabSheets').setAttribute('aria-selected', v === 'sheets');
-    render();
-  }
-
-  function render() {
-    persist();
-    if (state.view === 'sheets') renderSheet();
-    else if (model().layout !== 'sheets') renderDashboard();
-  }
-
-  // ---------- dashboard ----------
-  function selLabel(m) { return state.month === 'ytd' ? '2026 YTD' : m.months[state.month]; }
-  function prevIdx() { return state.month === 'ytd' || state.month === 0 ? null : state.month - 1; }
-  function entityFor(mt) { return state.entity && mt.entitySet === 'main' ? state.entity : null; }
-
-  // Reference value for comparisons: a target, Avg 2025, or this year's monthly average.
-  function assess(m, mt, v) {
-    var ent = entityFor(mt);
-    var out = { state: 'neutral', notes: [] };
-    if (v === null) return out;
-    var threshold = m.watchThreshold || 0.15;
-    if (mt.target) {
-      var meets = mt.good === 'up' ? v >= mt.target.value : v <= mt.target.value;
-      out.state = meets ? 'good' : 'bad';
-      out.target = { meets: meets, text: (mt.good === 'up' ? 'Target ' : 'Benchmark ') + fmt(mt.target.value, mt) };
-      var ratio = mt.target.value ? v / mt.target.value : null;
-      if (!meets && ratio && mt.good === 'down' && ratio >= 1.5) out.target.text += ' · ' + ratio.toFixed(1) + '×';
-    }
-    var ref = null, refLabel = '';
-    if (!ent && mt.baselines && mt.baselines['Avg 2025'] !== undefined) {
-      ref = mt.baselines['Avg 2025']; refLabel = 'Avg-2025';
-      if (state.month === 'ytd' && mt.agg === 'sum') v = E.monthlyAverage(m, mt, ent);
-    } else if (state.month !== 'ytd') {
-      ref = E.monthlyAverage(m, mt, ent); refLabel = '2026 avg';
-    }
-    if (ref) {
-      var d = v / ref - 1;
-      out.delta = { d: d, label: refLabel };
-      if (!mt.target && mt.good && Math.abs(d) >= threshold) out.state = (d < 0) === (mt.good === 'down') ? 'good' : 'warn';
-    }
-    return out;
-  }
-
-  function sparkline(arr, idx) {
-    var pts = arr.map(function (v, i) { return v === null ? null : [i, v]; }).filter(Boolean);
-    if (pts.length < 2) return '';
-    var vals = pts.map(function (p) { return p[1]; });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
-    var W = 120, H = 26, n = arr.length - 1 || 1;
-    var xy = function (p) { return [(p[0] / n * (W - 4) + 2).toFixed(1), (H - 3 - (p[1] - lo) / span * (H - 6)).toFixed(1)]; };
-    var line = pts.map(function (p) { return xy(p).join(','); }).join(' ');
-    var area = 'M' + xy(pts[0])[0] + ',' + H + ' L' + line.replace(/ /g, ' L') + ' L' + xy(pts[pts.length - 1])[0] + ',' + H + ' Z';
-    var dot = '';
-    if (idx !== null && arr[idx] !== null && arr[idx] !== undefined) { var d = xy([idx, arr[idx]]); dot = '<circle cx="' + d[0] + '" cy="' + d[1] + '" r="2.6" fill="var(--accent)"></circle>'; }
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + area + '" fill="var(--accent-soft)"></path><polyline points="' + line + '" fill="none" stroke="var(--accent)" stroke-width="1.4" vector-effect="non-scaling-stroke"></polyline>' + dot + '</svg>';
-  }
-
-  function cardKeys(m) {
-    var keys = m.cards.slice();
-    if (m.facilityCards) keys = m.facilityCards.concat(keys);
-    return keys.filter(function (k) { return m.metrics[k]; });
-  }
-
-  function renderDashboard() {
-    var m = model();
-    $('hOrg').textContent = [m.org, m.fileName].filter(Boolean).join('  ·  ');
-    $('hTitle').textContent = m.title.replace(/\s*\|\s*/, ' · ');
-    $('hSub').textContent = m.subtitle;
-    $('hShowing').textContent = 'Showing ' + selLabel(m) + ' · ' + (state.entity || m.allLabel) + ' · latest data ' + m.months[m.latestIdx];
-
-    // KPI tiles
-    var html = cardKeys(m).map(function (k, idx) {
-      var mt = m.metrics[k], ent = entityFor(mt);
-      var v = E.valueOf(m, mt, state.month, ent);
-      var a = assess(m, mt, v);
-      var subs = [];
-      if (state.month === 'ytd' && mt.agg === 'sum') subs.push('Avg/month ' + fmt(E.monthlyAverage(m, mt, ent), mt));
-      var p = prevIdx();
-      if (p !== null) {
-        var pv = E.valueOf(m, mt, p, ent);
-        if (pv && v !== null) { var d = v / pv - 1; subs.push('<span class="' + (d >= 0 ? 'up' : 'down') + '-' + (mt.good ? ((d < 0) === (mt.good === 'down') ? 'good' : 'bad') : '') + '">vs prev ' + pct(d) + '</span>'); }
-      }
-      if (a.delta) subs.push('<span class="' + (a.delta.d >= 0 ? 'up' : 'down') + '-' + (mt.good ? ((a.delta.d < 0) === (mt.good === 'down') ? 'good' : 'bad') : '') + '">vs ' + a.delta.label + ' ' + pct(a.delta.d) + '</span>');
-      if (a.target) subs.push((a.target.meets ? '✔ ' : '▲ ') + a.target.text);
-      var scope = state.entity && !ent ? '<span class="tag" title="This figure is not split by ' + esc(m.entityLabel.toLowerCase()) + ' in the workbook">' + (m.layout === 'campus' ? 'Campus' : 'All') + '</span>' : (ent ? '<span class="tag">' + esc(ent) + '</span>' : '');
-      return '<button class="kpi" style="--i:' + idx + '" data-key="' + k + '" data-state="' + a.state + '" aria-pressed="' + (state.focus === k) + '">' +
-        '<span class="lab"><span>' + (mt.icon ? mt.icon + ' ' : '') + esc(mt.label) + '</span>' + scope + '</span>' +
-        '<span class="val"><span class="num" data-v="' + (v === null ? '' : v) + '">' + fmt(v, mt) + '</span><span class="unit">' + esc(unitOf(mt)) + '</span></span>' +
-        '<span class="sub">' + (subs.join('') ? subs.join(' · ') : '&nbsp;') + '</span>' +
-        sparkline(E.seriesOf(m, mt, ent).slice(0, m.latestIdx + 1), state.month === 'ytd' ? null : state.month) +
-        '</button>';
-    }).join('');
-    $('kpis').innerHTML = html;
-    animateTiles(m);
-    $('kpiNote').textContent = (m.layout === 'campus' && state.entity ? 'Tiles tagged Campus are campus-wide; only metered water and power are split by facility. ' : '') + 'Select a tile to chart it below.';
-
-    $('selMetric').value = state.focus;
-    renderTrend(m);
-    renderRank(m);
-    renderScore(m);
-    renderStatus(m);
-    renderWatch(m);
-    $('findings').innerHTML = m.findings.length ? m.findings.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') : '<li>No findings listed in this workbook.</li>';
-    $('sources').textContent = m.sources || '';
-    updateScene(m);
-  }
-
-  // ---------- motion ----------
-  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var prevVals = {}, lastEnter = '';
-  function animateTiles(m) {
-    var sig = state.book + '|' + state.month + '|' + state.entity;
-    var entering = sig !== lastEnter;
-    lastEnter = sig;
-    Array.prototype.forEach.call($('kpis').children, function (el) {
-      var k = el.dataset.key, mt = m.metrics[k], num = el.querySelector('.num');
-      var to = num.dataset.v === '' ? null : +num.dataset.v;
-      var pk = state.book + ':' + k, from = prevVals[pk];
-      prevVals[pk] = to;
-      if (!entering) return;
-      el.classList.add('enter-kpi');
-      if (reduced || to === null) return;
-      if (from === undefined || from === null) from = 0;
-      if (from === to) return;
-      var t0 = performance.now(), dur = 900;
-      (function tick(now) {
-        var p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 4);
-        num.textContent = fmt(from + (to - from) * e, mt);
-        if (p < 1) requestAnimationFrame(tick); else { num.textContent = fmt(to, mt); num.parentNode.classList.add('flash'); }
-      })(t0);
-    });
-    if (entering) ['secCharts', 'secScore', 'secNotes'].forEach(function (id) {
-      var el = $(id); el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter');
-      Array.prototype.forEach.call(el.children, function (c, i) { c.style.setProperty('--i', i + 4); });
-    });
-  }
-  // Pointer tilt and spotlight on tiles.
-  if (!reduced && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
-    $('kpis').addEventListener('pointermove', function (e) {
-      var el = e.target.closest('.kpi'); if (!el) return;
-      var r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      el.style.setProperty('--ry', ((x - 0.5) * 10).toFixed(2) + 'deg');
-      el.style.setProperty('--rx', ((0.5 - y) * 10).toFixed(2) + 'deg');
-      el.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); el.style.setProperty('--my', (y * 100).toFixed(1) + '%');
-    });
-    $('kpis').addEventListener('pointerout', function (e) {
-      var el = e.target.closest('.kpi'); if (el && !el.contains(e.relatedTarget)) { el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); }
-    });
-  }
-  // Wrap a DOM change in a view transition where the browser supports it.
-  function transition(fn) {
-    if (!reduced && document.startViewTransition) document.startViewTransition(fn); else fn();
-  }
-
-  // ---------- 3D backdrop ----------
-  var sceneOn = window.MISScene && window.THREE && window.MISScene.init($('scene'));
-  if (!sceneOn) { $('scene').hidden = true; }
-  function updateScene(m) {
-    if (!sceneOn) return;
-    var mt = m.metrics[state.focus];
-    // Heights follow the focused metric when it is split by building, else the main per-building metric.
-    var src = mt.entitySet === 'main' ? mt : m.metrics[m.scorecard[0]];
-    var heightKey = src ? src.key : null;
-    var buildings = [];
-    if (mt.entitySet !== 'main' && mt.breakdown) {
-      buildings = mt.breakdown.entities.map(function (e) {
-        var arr = mt.breakdown.monthly[e], v;
-        if (state.month === 'ytd') { var s2 = arr.slice(0, m.latestIdx + 1).filter(function (x) { return x !== null; }); v = s2.length ? s2.reduce(function (a, b) { return a + b; }, 0) : null; }
-        else v = arr[state.month];
-        return { name: e, value: v, group: '' };
-      });
-      src = mt;
-    } else if (src) {
-      buildings = m.entities.map(function (e) { return { name: e, value: E.valueOf(m, src, state.month, e), group: (m.entityGroups || {})[e] || '' }; });
-    }
-    var dark = css('--bg').toLowerCase() !== '#f3f5f4';
-    MISScene.update({
-      key: state.book + ':' + (src === mt && mt.breakdown && mt.entitySet !== 'main' ? mt.key : 'main'),
-      buildings: buildings, selected: state.entity, group: mt.group, metricKey: mt.key,
-      palette: { bg: css('--bg'), edge: css('--accent'), accent: css('--accent'), body: css('--surface-2'), line: css('--line'), ink2: css('--ink-2'), light: !dark }
-    });
-    var by = mt.entitySet !== 'main' && mt.breakdown ? mt.breakdown.title.replace(/^.*?\bby\b\s*/i, '').replace(/\s*\(.*?\)/g, '') : (m.entityLabel || 'building').toLowerCase();
-    var fx = { energy: 'current flows from the substation', water: 'water flows from the reservoir', solar: 'sunlight streams onto the roofs', hvac: 'cool air rises from the roofs', other: 'data motes orbit each block' }[MISScene.modeFor(mt.group, mt.key)];
-    $('sceneCap').hidden = !buildings.length;
-    $('sceneText').textContent = 'Backdrop: each ' + by + ' is a block, its height is ' + (src ? src.label.toLowerCase() : '') + ' for ' + selLabel(m) + '; ' + fx + '.';
-  }
-
-  function chartDefaults() {
-    Chart.defaults.font.family = css('--font-ui').split(',')[0].replace(/"/g, '') || 'system-ui';
-    Chart.defaults.color = css('--ink-2');
-    Chart.defaults.borderColor = css('--line');
-  }
-
-  function renderTrend(m) {
-    var mt = m.metrics[state.focus];
-    var ent = entityFor(mt);
-    var arr = E.seriesOf(m, mt, ent);
-    var n = Math.max(m.latestIdx + 1, 1);
-    arr = arr.slice(0, n);
-    var labels = m.months.slice(0, n);
-    var accent = css('--accent'), muted = css('--muted-bar'), ink2 = css('--ink-2'), warn = css('--warn');
-    var colors = arr.map(function (v, i) { return state.month === 'ytd' || i === state.month ? accent : muted; });
-    var ds = [{ type: 'bar', label: mt.label + (ent ? ' — ' + ent : ''), data: arr, backgroundColor: colors, borderRadius: 3, order: 2 }];
-    var notes = [];
-    if (!ent && mt.baselines && mt.baselines['Avg 2025'] !== undefined) {
-      ds.push({ type: 'line', label: 'Avg 2025', data: labels.map(function () { return mt.baselines['Avg 2025']; }), borderColor: ink2, borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, order: 1 });
-    } else {
-      var avg = E.monthlyAverage(m, mt, ent);
-      if (avg !== null) ds.push({ type: 'line', label: '2026 monthly average', data: labels.map(function () { return avg; }), borderColor: ink2, borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, order: 1 });
-    }
-    if (mt.target) ds.push({ type: 'line', label: mt.target.label, data: labels.map(function () { return mt.target.value; }), borderColor: warn, borderDash: [2, 3], borderWidth: 2, pointRadius: 0, order: 0 });
-    if (state.entity && !ent) notes.push('This metric is not split by ' + m.entityLabel.toLowerCase() + ' in the workbook, so the chart shows ' + (m.layout === 'campus' ? 'the campus total' : 'all schools') + '.');
-    notes.push('Source: ' + mt.source + '.');
-    $('trendTitle').textContent = mt.label + (unitOf(mt) ? ' (' + unitOf(mt) + ')' : '');
-    $('trendNote').textContent = notes.join(' ');
-    var scale100 = isPct(mt) ? 100 : 1;
-    if (charts.trend) charts.trend.destroy();
-    chartDefaults();
-    charts.trend = new Chart($('trendChart'), {
-      data: { labels: labels, datasets: ds.map(function (d) { d.data = d.data.map(function (v) { return v === null ? null : v * scale100; }); return d; }) },
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: false,
-        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y / scale100, mt) + ' ' + unitOf(mt); } } } },
-        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: function (v) { return nf0.format(v); } } } },
-        onClick: function (e, els) { if (els.length) { state.month = els[0].index; $('selMonth').value = String(state.month); render(); } }
-      }
-    });
-  }
-
-  function rankData(m, mt) {
-    var names, getter;
-    if (mt.entitySet === 'main') {
-      names = m.entities;
-      getter = function (e) { return E.valueOf(m, mt, state.month, e); };
-    } else if (mt.breakdown) {
-      var bd = mt.breakdown;
-      names = bd.entities;
-      getter = function (e) {
-        var arr = bd.monthly[e].map(function (v) { return v === null ? null : v * (mt.scale || 1); });
-        if (state.month !== 'ytd') return arr[state.month];
-        var s = arr.slice(0, m.latestIdx + 1).filter(function (v) { return v !== null; });
-        return s.length ? s.reduce(function (a, b) { return a + b; }, 0) : null;
-      };
-    } else return null;
-    return names.map(function (e) { return { name: e, v: getter(e) }; }).filter(function (r) { return r.v !== null; })
-      .sort(function (a, b) { return b.v - a.v; });
-  }
-
-  function renderRank(m) {
-    var mt = m.metrics[state.focus];
-    var rows = rankData(m, mt);
-    var box = $('rankBox');
-    if (charts.rank) { charts.rank.destroy(); charts.rank = null; }
-    var by = mt.breakdown && mt.entitySet !== 'main' ? mt.breakdown.title.replace(/^.*?\bby\b\s*/i, '').replace(/\s*\(.*?\)/g, '') : (m.entityLabel || '').toLowerCase();
-    $('rankTitle').textContent = mt.label + ' by ' + by + ' — ' + selLabel(m);
-    if (!rows || !rows.length) {
-      box.innerHTML = '<div class="empty">' + (rows ? 'No ' + by + ' data for ' + selLabel(m) + '.' : 'The workbook records ' + esc(mt.label.toLowerCase()) + ' for the campus as a whole, so there is no ' + esc(by || 'facility') + ' ranking. Choose metered water or power, HVAC or solar to compare.') + '</div>';
-      $('rankNote').textContent = '';
-      return;
-    }
-    if (!box.querySelector('canvas')) box.innerHTML = '<canvas id="rankChart"></canvas>';
-    box.style.height = Math.max(220, rows.length * 22 + 40) + 'px';
-    var accent = css('--accent'), muted = css('--muted-bar');
-    var scale100 = isPct(mt) ? 100 : 1;
-    chartDefaults();
-    charts.rank = new Chart(box.querySelector('canvas'), {
-      type: 'bar',
-      data: { labels: rows.map(function (r) { return r.name; }), datasets: [{ data: rows.map(function (r) { return r.v * scale100; }), backgroundColor: rows.map(function (r) { return r.name === state.entity ? accent : muted; }), borderRadius: 3 }] },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return fmt(c.parsed.x / scale100, mt) + ' ' + unitOf(mt); } } } },
-        scales: { x: { beginAtZero: true, ticks: { callback: function (v) { return nf0.format(v); } } }, y: { grid: { display: false }, ticks: { autoSkip: false } } },
-        onClick: function (e, els) {
-          if (els.length && mt.entitySet === 'main') { var nm = rows[els[0].index].name; state.entity = state.entity === nm ? '' : nm; $('selEntity').value = state.entity; render(); }
-        }
-      }
-    });
-    var total = rows.reduce(function (a, r) { return a + r.v; }, 0);
-    $('rankNote').textContent = mt.agg === 'sum' && rows.length > 1 ? 'Top: ' + rows[0].name + ' with ' + fmt(rows[0].v, mt) + ' ' + unitOf(mt) + ' (' + Math.round(rows[0].v / total * 100) + '% of the total shown).' + (mt.entitySet === 'main' ? ' Select a bar to drill in.' : '') : (mt.entitySet === 'main' ? 'Select a bar to drill in.' : '');
-  }
-
-  function renderScore(m) {
-    var keys = m.scorecard.filter(function (k) { return m.metrics[k]; });
-    $('scoreTitle').textContent = (m.entityLabel || 'Entity') + ' scorecard — ' + selLabel(m);
-    var cols = [];
-    if (m.entityGroups) cols.push({ id: 'group', label: 'Group', get: function (e) { return m.entityGroups[e] || ''; }, text: true });
-    keys.forEach(function (k) {
-      var mt = m.metrics[k];
-      cols.push({ id: k, label: mt.label.replace(/\s*\(.*\)/, '') + (unitOf(mt) ? ' (' + unitOf(mt) + ')' : ''), mt: mt, get: function (e) { return E.valueOf(m, mt, state.month, e); } });
-      if (m.layout === 'campus') {
-        cols.push({ id: k + ':share', label: 'Share', pct: true, get: function (e) { var v = E.valueOf(m, mt, state.month, e), t = E.valueOf(m, mt, state.month, null); return v !== null && t ? v / t : null; } });
-        if (state.month !== 'ytd') cols.push({ id: k + ':ytd', label: 'YTD', mt: mt, get: function (e) { return E.valueOf(m, mt, 'ytd', e); } });
-      }
-    });
-    var rows = m.entities.slice();
-    if (state.sortCol) {
-      var c = cols.find(function (x) { return x.id === state.sortCol; });
-      if (c) rows.sort(function (a, b) {
-        var va = c.get(a), vb = c.get(b);
-        if (c.text) return String(va).localeCompare(String(vb)) * -state.sortDir;
-        return ((va === null ? -Infinity : va) - (vb === null ? -Infinity : vb)) * state.sortDir;
-      });
-    }
-    function cell(c, e) {
-      var v = c.get(e);
-      if (c.text) return '<td class="dim">' + esc(v) + '</td>';
-      if (c.pct) return '<td class="dim">' + (v === null ? '–' : nf1.format(v * 100) + '%') + '</td>';
-      return '<td' + (v === null ? ' class="dim"' : '') + '>' + fmt(v, c.mt) + '</td>';
-    }
-    var head = '<thead><tr><th data-col="">' + esc(m.entityLabel) + '</th>' + cols.map(function (c) {
-      return '<th data-col="' + c.id + '" aria-sort="' + (state.sortCol === c.id ? (state.sortDir < 0 ? 'descending' : 'ascending') : 'none') + '">' + esc(c.label) + (state.sortCol === c.id ? (state.sortDir < 0 ? ' ▼' : ' ▲') : '') + '</th>';
-    }).join('') + '</tr></thead>';
-    var body = rows.map(function (e) {
-      return '<tr data-ent="' + esc(e) + '"' + (e === state.entity ? ' class="sel"' : '') + '><td>' + esc(e) + '</td>' + cols.map(function (c) { return cell(c, e); }).join('') + '</tr>';
-    }).join('');
-    var total = '<tr class="total" data-ent=""><td>' + esc(m.layout === 'campus' ? 'Metered facilities' : m.allLabel) + '</td>' + cols.map(function (c) {
-      if (c.text) return '<td></td>';
-      if (c.pct) return '<td class="dim">100%</td>';
-      return '<td>' + fmt(c.id.indexOf(':ytd') > 0 ? E.valueOf(m, c.mt, 'ytd', null) : E.valueOf(m, c.mt, state.month, null), c.mt) + '</td>';
-    }).join('') + '</tr>';
-    $('score').innerHTML = head + '<tbody>' + body + total + '</tbody>';
-    $('secScore').hidden = !m.entities.length;
-  }
-
-  function renderStatus(m) {
-    $('secStatus').hidden = !m.statusTables.length;
-    $('status').innerHTML = m.statusTables.map(function (t) {
-      var ents = [''].concat(m.entities);
-      return '<div><div class="section-title"><h2>' + esc(t.title) + '</h2><span>' + esc(t.note) + '</span></div><div class="table-wrap"><table><thead><tr><th>' + (t.code === 'F' ? 'Status' : 'Measure') + '</th><th>' + esc(state.entity || m.allLabel) + '</th></tr></thead><tbody>' +
-        t.rows.map(function (r) {
-          var v = state.entity ? r.values[state.entity] : r.values.__total;
-          return '<tr><td>' + esc(r.label) + '</td><td>' + (v === null || v === undefined ? '–' : nf0.format(v)) + '</td></tr>';
-        }).join('') + '</tbody></table></div></div>';
-    }).join('');
-  }
-
-  function renderWatch(m) {
-    var items = [];
-    cardKeys(m).forEach(function (k) {
-      var mt = m.metrics[k], ent = entityFor(mt);
-      var v = E.valueOf(m, mt, state.month, ent);
-      if (v === null) return;
-      var a = assess(m, mt, v);
-      if (a.target) items.push({ s: a.target.meets ? 'good' : 'bad', t: mt.label + ' vs ' + a.target.text.toLowerCase().replace(/ ·.*$/, ''), f: fmt(v, mt) + ' ' + unitOf(mt) });
-      else if (a.delta && mt.good) items.push({ s: a.state === 'neutral' ? 'good' : a.state, t: mt.label + ' vs ' + a.delta.label, f: pct(a.delta.d) });
-    });
-    if (m.coverage && state.month !== 'ytd') {
-      [['grid', 'electricity'], ['water', 'water']].forEach(function (p) {
-        var cov = m.coverage[p[0]];
-        if (!cov) return;
-        var missing = m.entities.length - (cov[state.month] || 0);
-        items.push({ s: missing > 0 ? 'warn' : 'good', t: 'Schools yet to report ' + p[1] + ' for ' + m.months[state.month], f: String(missing) });
-      });
-    }
-    var order = { bad: 0, warn: 1, good: 2 };
-    items.sort(function (a, b) { return order[a.s] - order[b.s]; });
-    var word = { bad: 'Act', warn: 'Check', good: 'OK' };
-    $('watch').innerHTML = items.map(function (i) { return '<li><span class="chip ' + i.s + '">' + word[i.s] + '</span><span>' + esc(i.t) + '</span><span class="fig">' + esc(i.f) + '</span></li>'; }).join('') || '<li><span></span><span>No comparisons available for this selection.</span><span></span></li>';
-  }
-
-  // ---------- sheet viewer ----------
-  function colName(i) { var s = ''; i++; while (i > 0) { var r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; }
-  function renderSheet() {
-    var m = model();
-    var sh = m.sheets[state.sheet];
-    if (!sh) { $('sheet').innerHTML = ''; return; }
-    var q = $('sheetFilter').value.trim().toLowerCase();
-    var rows = sh.rows;
-    var width = 0;
-    rows.forEach(function (r) { for (var c = r.length - 1; c >= 0; c--) if (r[c] !== '' && r[c] !== null) { width = Math.max(width, c + 1); break; } });
-    var shown = [];
-    rows.forEach(function (r, i) {
-      var has = r.some(function (v) { return v !== '' && v !== null; });
-      if (!has) return;
-      if (q && !r.some(function (v) { return String(v).toLowerCase().indexOf(q) >= 0; })) return;
-      shown.push(i);
-    });
-    var limit = 1500;
-    var head = '<thead><tr><th class="rn">#</th>';
-    for (var c = 0; c < width; c++) head += '<th>' + colName(c) + '</th>';
-    head += '</tr></thead>';
-    var hl = function (s) {
-      var e = esc(s);
-      if (!q) return e;
-      var i = e.toLowerCase().indexOf(esc(q));
-      return i < 0 ? e : e.slice(0, i) + '<mark>' + e.slice(i, i + esc(q).length) + '</mark>' + e.slice(i + esc(q).length);
-    };
-    var body = shown.slice(0, limit).map(function (i) {
-      var r = rows[i], tds = '<td class="rn">' + (i + 1) + '</td>';
-      for (var c = 0; c < width; c++) {
-        var v = r[c] === undefined || r[c] === null ? '' : String(r[c]);
-        tds += '<td' + (/^[-₹]?[\d,.]+%?$/.test(v) ? ' class="n"' : '') + ' title="' + esc(v) + '">' + hl(v) + '</td>';
-      }
-      return '<tr>' + tds + '</tr>';
-    }).join('');
-    $('sheet').innerHTML = head + '<tbody>' + body + '</tbody>';
-    $('sheetInfo').textContent = shown.length + ' of ' + rows.filter(function (r) { return r.some(function (v) { return v !== '' && v !== null; }); }).length + ' rows · ' + width + ' columns' + (shown.length > limit ? ' · first ' + limit + ' shown' : '');
-  }
-
-  // ---------- events ----------
-  $('selFile').addEventListener('change', function (e) { var v = +e.target.value; transition(function () { selectBook(v, null); }); });
-  $('selMonth').addEventListener('change', function (e) { state.month = e.target.value === 'ytd' ? 'ytd' : +e.target.value; render(); });
-  $('selEntity').addEventListener('change', function (e) { state.entity = e.target.value; render(); });
-  $('selMetric').addEventListener('change', function (e) { state.focus = e.target.value; render(); });
-  $('kpis').addEventListener('click', function (e) { var b = e.target.closest('.kpi'); if (b) { state.focus = b.dataset.key; render(); } });
-  $('score').addEventListener('click', function (e) {
-    var th = e.target.closest('th');
-    if (th) {
-      var col = th.dataset.col || null;
-      if (state.sortCol === col) state.sortDir = -state.sortDir; else { state.sortCol = col; state.sortDir = -1; }
-      render(); return;
-    }
-    var tr = e.target.closest('tr[data-ent]');
-    if (tr) { state.entity = tr.dataset.ent === state.entity ? '' : tr.dataset.ent; $('selEntity').value = state.entity; render(); }
-  });
-  document.querySelector('.tabs').addEventListener('click', function (e) { var b = e.target.closest('button[data-view]'); if (b && !b.disabled && b.dataset.view !== state.view) transition(function () { setView(b.dataset.view); }); });
-  $('selSheet').addEventListener('change', function (e) { state.sheet = +e.target.value; render(); });
-  var ft;
-  $('sheetFilter').addEventListener('input', function () { clearTimeout(ft); ft = setTimeout(renderSheet, 150); });
-  $('upload').addEventListener('change', function (e) {
-    var files = Array.prototype.slice.call(e.target.files || []);
-    var last = null;
-    var pending = files.length;
-    files.forEach(function (f) {
-      var r = new FileReader();
-      r.onload = function () {
-        try {
-          last = addBook(new Uint8Array(r.result), f.name);
-          var mm = books[last].model;
-          toast('Added ' + f.name + (mm.layout === 'sheets' ? ' — no MIS_Calc sheet found, so only the sheet viewer is available' : ''));
-        } catch (err) { console.error(err); toast('Could not read ' + f.name + '. Save it as .xlsx and try again.'); }
-        if (--pending === 0 && last !== null) { fillFileSelect(); $('selFile').value = String(last); selectBook(last, null); }
-      };
-      r.readAsArrayBuffer(f);
-    });
-    e.target.value = '';
-  });
-  if (window.matchMedia) {
-    var mq = window.matchMedia('(prefers-color-scheme: dark)');
-    if (mq.addEventListener) mq.addEventListener('change', function () { if (books.length) render(); });
-  }
-  new MutationObserver(function () { if (books.length) render(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-
-  init();
-})();
-</script>
+<script src="stage3d.js"></script>
+<script src="deck.js"></script>
 </body>
 </html>

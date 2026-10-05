@@ -1,6 +1,6 @@
 # MIS Dashboard
 
-A browser app that combines the two FM MIS workbooks in one dashboard. A **Workbook** drop-down switches between them:
+**Facilities MIS Command Deck**: one app for both FM MIS workbooks, built in the same design as the *Facilities MIS Dashboard* artifact. It has a dark control-room deck, a live 3D stage, glass instrument panels, and a dock of modules with a sweep transition between them.
 
 | Workbook | File |
 |---|---|
@@ -9,29 +9,28 @@ A browser app that combines the two FM MIS workbooks in one dashboard. A **Workb
 
 ## Use it
 
-The dashboard sits over a live 3D campus. Each school or facility is a block whose height follows the selected metric. The motion matches the subject: current on overhead lines for energy, a rippling reservoir and pipe flow for water, sunlight for solar, rising air for HVAC. The camera eases to the selected school or facility. Motion stops when the system's reduce-motion setting is on.
+Open `app/index.html` in a browser. It needs internet access to load three.js, the spreadsheet reader and the fonts from their CDNs.
 
-Open `app/index.html` in a browser. It needs internet access once to load the spreadsheet reader and charting library from a CDN.
+- **Top bar**: *Workbook*, *Reporting period* (each month or full year to date) and *School* / *Facility* selectors, a live badge, the IST clock, **Sheets** (browse and filter every sheet), **+** (add another `.xlsx` for this session), **Present** (auto-advances the modules every 15 s) and full screen.
+- **Modules** (dock at the bottom):
+  - AKESI: Overview, Electricity, Solar, Water, Repairs, Generators, Schools, AMC & Tests.
+  - AKA: Overview, Water, Electricity, Solar, HVAC, Diesel sets, Service desk, Team, Facilities.
+- **3D stage**: each module has its own scene, including water treatment, a transformer with arcs to the loads, a solar array with a moving sun, a genset, cooling towers, a service-desk ticket ring, the team muster ring and paired meter stacks. Block heights follow the selected period, and the selected school or facility is lit and labelled.
+- **Drill in**: select a ranking bar or a scorecard row to filter the whole deck to that school or facility. Select a month column in any chart to jump to that month.
+- **Keys**: ← → change module, ↑ ↓ change period, A presents, F goes full screen, S opens Sheets, Esc closes Sheets.
 
-- **Workbook / Month / School or Facility**: the yellow drop-downs. Month includes **2026 YTD**.
-- **Key figures**: tiles compare with the previous month, Avg-2025 (AKA) or the 2026 monthly average (AKS), plus benchmarks and targets from MIS_Calc. Select a tile to chart it.
-- **Trend and ranking charts**: select a bar to change the month or drill into a school or facility.
-- **Scorecard**: select a row to drill in. Select a heading to sort.
-- **Watchlist and data-quality findings**: the watchlist follows the selection. The findings are copied from each workbook's FM_Dashboard.
-- **Sheets** tab: browse and filter every sheet of the selected workbook.
-- **Add workbook…**: open an updated or extra `.xlsx` for the current session.
-
-All figures are read from each workbook's `MIS_Calc` sheet, using the values saved when the file was last opened in Excel.
+Every figure is read from the workbook's `MIS_Calc` sheet, using the values saved when it was last opened in Excel. The "Live telemetry" sparklines are modelled from the period totals, as the panel itself says.
 
 ## Update the bundled data
 
-1. Replace or add the `.xlsx` in `data/`. Open and save it in Excel first so the formula values are current.
+1. Replace or add the `.xlsx` in `data/`. Open and save it in Excel first so formula values are current.
 2. Run `python3 tools/build_workbooks.py` to regenerate `app/workbooks.js`.
 
 ## Files
 
-- `app/index.html`: the app
-- `app/scene3d.js`: the 3D campus backdrop (three.js)
-- `app/mis-engine.js`: reads both MIS_Calc layouts (school blocks and the campus fact table)
-- `app/workbooks.js`: the bundled workbooks (generated)
+- `app/index.html`: page, styles and layout
+- `app/deck.js`: modules, charts, controller, sheet viewer
+- `app/stage3d.js`: the 3D stage (three.js r128)
+- `app/mis-engine.js`: reads both MIS_Calc layouts
+- `app/workbooks.js`: bundled workbooks (generated)
 - `tools/build_workbooks.py`: regenerates `workbooks.js`
