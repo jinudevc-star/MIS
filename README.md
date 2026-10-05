@@ -9,6 +9,8 @@ A browser app that combines the two FM MIS workbooks in one dashboard. A **Workb
 
 ## Use it
 
+The dashboard sits over a live 3D campus. Each school or facility is a block whose height follows the selected metric. The motion matches the subject: current on overhead lines for energy, a rippling reservoir and pipe flow for water, sunlight for solar, rising air for HVAC. The camera eases to the selected school or facility. Motion stops when the system's reduce-motion setting is on.
+
 Open `app/index.html` in a browser. It needs internet access once to load the spreadsheet reader and charting library from a CDN.
 
 - **Workbook / Month / School or Facility**: the yellow drop-downs. Month includes **2026 YTD**.
@@ -29,6 +31,7 @@ All figures are read from each workbook's `MIS_Calc` sheet, using the values sav
 ## Files
 
 - `app/index.html`: the app
+- `app/scene3d.js`: the 3D campus backdrop (three.js)
 - `app/mis-engine.js`: reads both MIS_Calc layouts (school blocks and the campus fact table)
 - `app/workbooks.js`: the bundled workbooks (generated)
 - `tools/build_workbooks.py`: regenerates `workbooks.js`
