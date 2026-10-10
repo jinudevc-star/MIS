@@ -1,5 +1,36 @@
 # MIS Dashboard
 
+Two offline apps, each a single HTML file in `dist/` that opens with no internet, server or login:
+
+| File | App |
+|---|---|
+| `dist/Facilities_MIS_Dashboard.html` | **Facilities MIS Command Deck**: both MIS workbooks with a 3D stage |
+| `dist/SOP_Maintenance_App.html` | **SOP Maintenance App**: built from *SOP & Maintenance App Wireframes* |
+
+Rebuild both with `python3 tools/build_standalone.py`. Fonts and libraries are embedded (`app/vendor/`), and each build checks that the page makes no network request.
+
+## SOP Maintenance App
+
+Source: `sop/index.html` and `sop/app.js`.
+
+- **PM Overview**: status cards (Total, Overdue, Due soon, PM OK, Not checked, Compliance) filter the table, plus System, Criticality and search filters, an attention banner, and a PM status table sorted by next due with paging.
+- **Asset Cards**: the asset directory grid with the same filters.
+- **Asset Detail**: summary (location, responsible, last check, next PM, days to PM), with tabs for Operator Checks, PPM Tasks, Limits and Standards, check history and **Record check**.
+- **Record operator check** (mobile form): Pass, Fail or N/A per check, notes (required when a check fails), an optional photo (resized), and validation.
+  - Saving a check where nothing failed moves the next PM date on.
+  - If saving fails, the answers are kept and the reason is shown.
+- **Check Records**: every saved check, with export to Excel.
+- **Data**:
+  - Import the asset register from `.xlsx` or `.csv`. A template with instructions is provided.
+  - Switch back to demo data, export records, or clear records.
+  - Choose light, dark or follow-device appearance.
+
+The app opens on **illustrative demo assets**, labelled *Demo data*. Their counts match the wireframe: 120 assets, 12 overdue, 8 due soon, 92 PM OK, 8 not checked, 76.7% compliance. The live register sits in the Power BI dataset behind `SOP (1).pbix`, which isn't included, so import an export of it to work with real assets. Check results, notes and photos are stored in that browser on that device. Export them to share.
+
+---
+
+## Facilities MIS Command Deck
+
 **Facilities MIS Command Deck**: one app for both FM MIS workbooks, built in the same design as the *Facilities MIS Dashboard* artifact. It has a dark control-room deck, a live 3D stage, glass instrument panels, and a dock of modules with a sweep transition between them.
 
 | Workbook | File |
