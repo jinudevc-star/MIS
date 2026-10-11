@@ -1,11 +1,12 @@
 # MIS Dashboard
 
-Two offline apps, each a single HTML file in `dist/` that opens with no internet, server or login:
+Single-file apps in this repository. The two in `dist/` open with no internet, server or login:
 
 | File | App |
 |---|---|
 | `dist/Facilities_MIS_Dashboard.html` | **Facilities MIS Command Deck**: both MIS workbooks with a 3D stage |
 | `dist/SOP_Maintenance_App.html` | **SOP Maintenance App**: built from *SOP & Maintenance App Wireframes* |
+| `facilities-mis-dashboard.html` | **Facilities MIS Command Deck with Asset Register tab** (added in jinudevc-star/MIS#2, see below) |
 
 Rebuild both with `python3 tools/build_standalone.py`. Fonts and libraries are embedded (`app/vendor/`), and each build checks that the page makes no network request.
 
@@ -72,3 +73,15 @@ Every figure is read from the workbook's `MIS_Calc` sheet, using the values save
 - `tools/build_workbooks.py`: regenerates `workbooks.js`
 - `tools/build_standalone.py`: builds the single-file `dist/Facilities_MIS_Dashboard.html`
 - `app/vendor/`: three.js r128 and SheetJS 0.18.5, inlined into the single file
+
+---
+
+## Facilities MIS Command Deck with Asset Register (`facilities-mis-dashboard.html`)
+
+`facilities-mis-dashboard.html` is the Facilities MIS Command Deck for AKESI Schools and Aga Khan Academy Hyderabad. It is self-contained: open it in a browser. The live copy is the claude.ai artifact https://claude.ai/artifact/R7ZuiMxD8bGfRuhSL12kZT.
+
+### Asset Register tab
+
+When the Aga Khan Academy workbook is selected, the **Assets** tab shows campus asset status from the AKAH_SOP_Server asset register (https://claude.ai/artifact/N4qdSGMjaYhGBB1UaYaDoT). That is the same 48-asset register the AssetTrack QR Android app (jinudevc-star/Agakhan-Academies) uses. Asset IDs link to each asset's sheet in the register.
+
+On claude.ai, the tab reads the `register/current` document in the dashboard's database. A sync copies the asset register into that document. When the database is unavailable, for example in this file opened locally, the tab shows the snapshot built into the page and the time it was taken.
