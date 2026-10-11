@@ -89,6 +89,6 @@ Every figure is read from the workbook's `MIS_Calc` sheet, using the values save
 
 ### Asset Register tab
 
-When the Aga Khan Academy workbook is selected, the **Assets** tab shows campus asset status from the AKAH_SOP_Server asset register (https://claude.ai/artifact/N4qdSGMjaYhGBB1UaYaDoT). That is the same 48-asset register the AssetTrack QR Android app (jinudevc-star/Agakhan-Academies) uses. Asset IDs link to each asset's sheet in the register.
+When the Aga Khan Academy workbook is selected, the **Assets** tab shows campus asset status from the AKAH Asset Register (https://claude.ai/artifact/N4qdSGMjaYhGBB1UaYaDoT). That is the full 59-asset FM master register the AssetTrack QR Android app (jinudevc-star/Agakhan-Academies) uses. Asset IDs link to each asset's sheet in the register.
 
 On claude.ai, the tab reads the `register/current` document in the dashboard's database. A sync copies the asset register into that document. When the database is unavailable, for example in this file opened locally, the tab shows the snapshot built into the page and the time it was taken.
