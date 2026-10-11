@@ -36,5 +36,6 @@ Asset (keys short to keep the file small; omit empty values):
 | ppm | string | "" or frequency label when Covered under PPM = Y |
 | freq | number | PM interval days: PPM freq else AMC freq (M 30, Bi 60, Q 90, H 180, Y 365); Furniture 365; others 180 |
 | src | string | sheet + Excel row(s), e.g. "Asset Master List r6" or "Asset Master List r120-r123" |
+| note | string | optional data-quality note shown on the asset page, e.g. "Serial 18797 is also recorded on EQ-0231 (SR-2 (1stF) 6kg Washing machine). Verify the serial." Set on both assets when two kept assets share a serial or asset tag |
 
 No last-check / next-PM dates exist in the register, so every asset starts as "Not checked".
