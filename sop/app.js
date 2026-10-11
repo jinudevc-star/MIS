@@ -2,9 +2,9 @@
    AGA KHAN ACADEMY · SOP MAINTENANCE APP (offline)
    Screens follow "SOP & Maintenance App Wireframes": PM Overview, Asset Cards,
    Asset Detail and the mobile Record Check form, plus Check Records.
-   The live asset register sits in a Power BI dataset that is not part of the
-   wireframe file, so the app opens on illustrative demo data (clearly
-   labelled) and can import the real register from Excel / CSV.
+   Assets come from the bundled Master Asset Register (register.js, built by
+   tools/import_register.py). An Excel / CSV register imported on this device
+   takes precedence; without either the app opens on labelled demo data.
    Check results, notes and photos are saved on this device and export to Excel.
    ============================================================================ */
 (function () {
@@ -123,6 +123,56 @@ const SYSTEMS = {
     tasks: [['Backwash filter', 7], ['Calibrate dosing probes', 30], ['Service pump and seals', 180]],
     limits: [['Free chlorine', 1, 3, 'mg/L'], ['pH', 7.2, 7.8, '']],
     standards: ['FINA / World Aquatics facilities rules (water quality)', 'OEM operation and maintenance manual']
+  },
+  // Trades below come from the Master Asset Register; they have no demo assets.
+  'Appliances': {
+    role: 'Maintenance technician', freq: 180, crit: ['Non-critical'],
+    checks: ['Appliance powers on and runs normally', 'Cord, plug and socket undamaged; no scorch marks', 'Door seals, hinges and controls intact', 'No water leak, unusual noise or smell'],
+    tasks: [['Clean filters, gaskets and drains', 90], ['Electrical safety check of cord, plug and earthing', 180], ['Descale or deep clean as per OEM', 180]],
+    limits: [['Refrigerator compartment temperature', 1, 5, '°C'], ['Freezer temperature', null, -18, '°C']],
+    standards: ['OEM operation and maintenance manual', 'AKA FM SOP: appliances in residences']
+  },
+  'Building fabric': {
+    role: 'Civil supervisor', freq: 180, crit: ['Non-critical'],
+    checks: ['No new cracks, spalling or damp patches on walls and ceiling', 'Doors, windows, locks and closers working', 'Floor finish intact; no trip hazards', 'Roof, terrace and gutters clear; no ponding or leaks'],
+    tasks: [['Clear roof drains and gutters', 90], ['Inspect and repair door and window hardware', 180], ['Waterproofing and facade inspection', 365], ['Touch-up paint on worn areas', 365]],
+    limits: [['Surface crack width (monitor beyond this)', null, 0.3, 'mm']],
+    standards: ['IS 456: plain and reinforced concrete (surface crack width)', 'AKA FM SOP: building fabric inspection']
+  },
+  'Furniture': {
+    role: 'Carpenter', freq: 365, crit: ['Non-critical'],
+    checks: ['Frame stable; no wobble, cracks or loose joints', 'No sharp edges, splinters or protruding screws', 'Upholstery, drawers, hinges and locks in good order', 'Item and quantity match the room record'],
+    tasks: [['Tighten fixings; lubricate hinges and slides', 180], ['Repair damaged upholstery, laminate or polish', 365], ['Inventory check against the register', 365]],
+    limits: [],
+    standards: ['Vendor care and maintenance instructions', 'AKA FM SOP: furniture inventory and condition']
+  },
+  'IT & AV': {
+    role: 'IT / AV technician', freq: 180, crit: ['Non-critical'],
+    checks: ['Device powers on and displays normally', 'Cables, connectors and mounts secure', 'Vents clear of dust; no overheating', 'Remote, controls and audio working'],
+    tasks: [['Clean vents, filters and screens', 90], ['Check firmware and lamp / panel hours', 180], ['Inspect mounts and cable management', 365]],
+    limits: [['Lamp hours (vs rated life)', null, 100, '%']],
+    standards: ['OEM operation and maintenance manual', 'AKA FM SOP: IT and AV equipment']
+  },
+  'Lab equipment': {
+    role: 'Lab technician', freq: 180, crit: ['Non-critical'],
+    checks: ['Equipment clean and operating normally', 'Cord, plug and earthing intact', 'Guards, interlocks and safety labels in place', 'Calibration label within its due date'],
+    tasks: [['Clean and decontaminate as per OEM', 90], ['Electrical safety inspection', 180], ['Calibration or performance check', 365]],
+    limits: [],
+    standards: ['OEM operation and maintenance manual', 'AKA FM SOP: science laboratory equipment']
+  },
+  'Sports': {
+    role: 'Sports facilities supervisor', freq: 180, crit: ['Non-critical'],
+    checks: ['Equipment anchored and stable; no wobble', 'No sharp edges, rust or broken parts', 'Nets, padding, belts and surfaces in good condition', 'Area clear and safety signage in place'],
+    tasks: [['Tighten fixings and inspect welds', 90], ['Replace worn nets, grips, belts and padding', 180], ['Full safety inspection of goals, frames and machines', 365]],
+    limits: [],
+    standards: ['OEM / supplier installation and maintenance instructions', 'EN 748 and EN 1270: safety of football goals and basketball equipment']
+  },
+  'General': {
+    role: 'Maintenance technician', freq: 180, crit: ['Non-critical'],
+    checks: ['Item present, intact and in its recorded location', 'Operating normally; no damage or abnormal noise', 'No safety hazard (loose parts, exposed wiring, sharp edges)', 'Asset tag or label readable'],
+    tasks: [['Visual inspection and cleaning', 90], ['Condition check and minor repairs', 180], ['Verification against the register', 365]],
+    limits: [],
+    standards: ['OEM operation and maintenance manual', 'AKA FM SOP: general asset inspection']
   }
 };
 const SYS_LOC = {
@@ -176,24 +226,48 @@ function demoAssets() {
   return out;
 }
 
-/* ------------------------------------------------- asset list (demo or import) */
+/* ------------------------------------- asset list (import, register or demo) */
+const REG = window.SOP_REGISTER && Array.isArray(window.SOP_REGISTER.assets) && window.SOP_REGISTER.assets.length ? window.SOP_REGISTER : null;
+const regTitle = () => REG.title ? REG.title.replace(/ · FM\b/, '') : 'Master Asset Register';
+/** Master Asset Register rows (REGISTER_SCHEMA.md) in the app's asset model. No dates exist, so all start Not checked. */
+function registerAssets() {
+  return REG.assets.map(r => {
+    const t = SYSTEMS[r.system] || {};
+    return {
+      id: r.id, name: r.name, system: r.system || 'General', category: r.category || '', building: r.building || '', area: r.location || '', room: r.room || '',
+      location: [r.building, r.location, r.room].filter((v, i, l) => v && l.indexOf(v) === i).join(' · '),
+      model: r.model || '', serial: r.serial || '', tag: r.tag || '', qty: r.qty, year: r.year, life: r.life, lifePct: r.lifePct,
+      amc: r.amc || '', ppm: r.ppm || '', src: r.src || '', note: r.note || '',
+      criticality: r.criticality || '', responsible: t.role || '', freq: r.freq || t.freq || 180,
+      lastCheck: null, lastType: null, nextDue: null
+    };
+  });
+}
 let assets = [];
 let source = { kind: 'demo', label: 'Demo data' };
+let opts = null;                 // filter option lists, rebuilt only when the asset list changes
+let hay = new WeakMap();         // lower-case search text per asset (kept off the asset so it is never saved)
 function loadAssets() {
   if (store.imported && Array.isArray(store.imported.assets) && store.imported.assets.length) {
     assets = store.imported.assets;
     source = { kind: 'import', label: 'Imported · ' + store.imported.fileName };
+  } else if (REG) {
+    assets = registerAssets();
+    source = { kind: 'register', label: regTitle() };
   } else {
     assets = demoAssets();
     source = { kind: 'demo', label: 'Demo data' };
   }
+  opts = null; hay = new WeakMap();
   applyRecords();
   $('#dataLabel').textContent = source.label;
-  $('#dataPill').classList.toggle('live', source.kind === 'import');
-  $('#dataPill').title = source.kind === 'demo' ? 'Illustrative assets for trying the app. Import your asset register under Data.' : 'Assets imported from ' + store.imported.fileName;
+  $('#dataPill').classList.toggle('live', source.kind !== 'demo');
+  $('#dataPill').title = source.kind === 'demo' ? 'Illustrative assets for trying the app. Import your asset register under Data.'
+    : source.kind === 'register' ? assets.length + ' assets from ' + (REG.source || 'the Master Asset Register') + (REG.generated ? ', generated ' + REG.generated : '')
+    : 'Assets imported from ' + store.imported.fileName;
 }
 const sop = a => {
-  const t = SYSTEMS[a.system] || SYSTEMS['Plumbing'];
+  const t = SYSTEMS[a.system] || SYSTEMS['General'];
   return {
     checks: a.checks && a.checks.length ? a.checks : t.checks,
     tasks: a.tasks && a.tasks.length ? a.tasks : t.tasks,
@@ -228,13 +302,21 @@ const chip = s => '<span class="chip ' + STATUS[s][1] + '">' + STATUS[s][0] + '<
 const daysTo = a => a._next == null ? null : Math.round((a._next - today0()) / DAY);
 
 /* ---------------------------------------------------------------- UI state */
-const ui = { system: '', crit: '', q: '', status: '', page: 0, sort: 'next', dir: 1, tab: 'checks', current: null };
+const ui = { system: '', crit: '', cat: '', bldg: '', q: '', status: '', page: 0, sort: 'next', dir: 1, tab: 'checks', current: null };
+const clearFilters = () => Object.assign(ui, { system: '', crit: '', cat: '', bldg: '', q: '', status: '', page: 0 });
+function haystack(a) {
+  let h = hay.get(a);
+  if (h == null) { h = [a.id, a.name, a.location, a.system, a.serial, a.tag, a.model, a.building, a.room].filter(Boolean).join(' ').toLowerCase(); hay.set(a, h); }
+  return h;
+}
 function filtered(ignoreStatus) {
   const q = ui.q.trim().toLowerCase();
   return assets.filter(a =>
     (!ui.system || a.system === ui.system) &&
     (!ui.crit || a.criticality === ui.crit) &&
-    (!q || (a.id + ' ' + a.name + ' ' + a.location + ' ' + a.system).toLowerCase().indexOf(q) >= 0) &&
+    (!ui.cat || a.category === ui.cat) &&
+    (!ui.bldg || a.building === ui.bldg) &&
+    (!q || haystack(a).indexOf(q) >= 0) &&
     (ignoreStatus || !ui.status || status(a) === ui.status));
 }
 function sorted(list) {
@@ -250,20 +332,39 @@ const ICON = {
   back: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg>',
   up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>'
 };
+const CRIT_ORDER = ['Critical', 'Non-critical', 'High', 'Medium', 'Low'];
+const CAT_ORDER = ['Equipment', 'Building', 'Furniture Fixture', 'House equipment', 'Furniture'];
+const byOrder = order => (a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b);
+function filterOptions() {
+  if (opts) return opts;
+  const uniq = k => Array.from(new Set(assets.map(a => a[k]).filter(Boolean)));
+  const opt = v => '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+  opts = {
+    system: uniq('system').sort().map(opt).join(''),
+    crit: uniq('criticality').sort(byOrder(CRIT_ORDER)).map(opt).join(''),
+    cat: uniq('category').sort(byOrder(CAT_ORDER)).map(opt).join(''),
+    bldg: uniq('building').sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(opt).join('')
+  };
+  return opts;
+}
 function filtersHtml() {
-  const sys = Array.from(new Set(assets.map(a => a.system))).sort();
-  const crit = Array.from(new Set(assets.map(a => a.criticality).filter(Boolean)));
-  const order = ['High', 'Medium', 'Low']; crit.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  return '<div class="filters">' +
-    '<div class="field"><label for="fSys">System</label><select id="fSys"><option value="">All</option>' + sys.map(s => '<option' + (s === ui.system ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div>' +
-    '<div class="field"><label for="fCrit">Criticality</label><select id="fCrit"><option value="">All</option>' + crit.map(s => '<option' + (s === ui.crit ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div>' +
-    '<div class="field"><label for="fQ">Search asset</label><input id="fQ" type="search" placeholder="ID, name or location" value="' + esc(ui.q) + '"></div></div>';
+  const o = filterOptions();
+  // Option lists are built once per asset list; the current choice is set after render (see bindFilters).
+  const sel = (id, label, html) => html ? '<div class="field"><label for="' + id + '">' + label + '</label><select id="' + id + '"><option value="">All</option>' + html + '</select></div>' : '';
+  const fields = [sel('fSys', 'System', o.system), sel('fCrit', 'Criticality', o.crit), sel('fCat', 'Category', o.cat), sel('fBldg', 'Building', o.bldg)].filter(Boolean);
+  fields.push('<div class="field"><label for="fQ">Search asset</label><input id="fQ" type="search" placeholder="' + (o.bldg ? 'ID, name, room, serial or tag' : 'ID, name or location') + '" value="' + esc(ui.q) + '"></div>');
+  return '<div class="filters n' + fields.length + '" style="--n:' + fields.length + '">' + fields.join('') + '</div>';
 }
 function bindFilters(rerender) {
-  $('#fSys').addEventListener('change', e => { ui.system = e.target.value; ui.page = 0; rerender(); });
-  $('#fCrit').addEventListener('change', e => { ui.crit = e.target.value; ui.page = 0; rerender(); });
+  [['fSys', 'system'], ['fCrit', 'crit'], ['fCat', 'cat'], ['fBldg', 'bldg']].forEach(([id, k]) => {
+    const el = $('#' + id);
+    if (!el) return;
+    el.value = ui[k];
+    el.addEventListener('change', e => { ui[k] = e.target.value; ui.page = 0; rerender(); });
+  });
   let t;
   $('#fQ').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { ui.q = e.target.value; ui.page = 0; rerender(true); }, 160); });
 }
@@ -290,7 +391,7 @@ function viewOverview(keepFocus) {
   const th = (k, label) => '<th><button data-sort="' + k + '">' + label + (ui.sort === k ? (ui.dir > 0 ? ' ▲' : ' ▼') : '') + '</button></th>';
   const focusId = keepFocus && document.activeElement && document.activeElement.id;
   main.innerHTML = '<section class="view">' +
-    '<div class="view-head"><div><div class="eyebrow">PM Overview</div><h1>Preventive maintenance</h1><p class="sub">Status of every asset against its PM schedule. ' + (source.kind === 'demo' ? 'Showing illustrative demo assets.' : '') + '</p></div></div>' +
+    '<div class="view-head"><div><div class="eyebrow">PM Overview</div><h1>Preventive maintenance</h1><p class="sub">Status of every asset against its PM schedule. ' + (source.kind === 'demo' ? 'Showing illustrative demo assets.' : source.kind === 'register' ? 'Assets from the ' + esc(regTitle()) + '.' : '') + '</p></div></div>' +
     filtersHtml() +
     '<div class="stats">' +
       stat('total', 'c-total', total, 'Total assets', '') +
@@ -301,14 +402,15 @@ function viewOverview(keepFocus) {
       '<div class="stat c-comp"><span class="v">' + (comp * 100).toFixed(1) + '%</span><span class="k">Compliance</span></div>' +
     '</div>' +
     (attention ? '<div class="banner">' + ICON.warn + '<span><b>' + attention + ' asset' + (attention === 1 ? ' needs' : 's need') + ' attention.</b> Select a status card to filter.</span></div>'
-      : '<div class="banner ok">' + ICON.ok + '<span><b>No assets overdue or due soon</b> for this selection.</span></div>') +
+      : total && c.nc === total ? '<div class="banner info">' + ICON.info + '<span><b>No checks recorded yet for ' + total + ' asset' + (total === 1 ? '' : 's') + '.</b> Open an asset and choose Record check; its next PM is then scheduled from its frequency.</span></div>'
+      : '<div class="banner ok">' + ICON.ok + '<span><b>No assets overdue or due soon</b> for this selection' + (c.nc ? '; ' + c.nc + ' not checked yet.' : '.') + '</span></div>') +
     '<div class="card"><header><h2>PM status by asset' + (ui.status ? ' · ' + STATUS[ui.status][0] : '') + '</h2>' + (ui.status ? '<button class="btn" id="clearStatus">Show all statuses</button>' : '') + '</header>' +
     (rows.length ? '<div class="tw"><table><thead><tr>' + th('id', 'Asset ID') + th('name', 'Asset name') + th('system', 'System') + th('status', 'PM status') + th('next', 'Next due') + '<th class="go">Open</th></tr></thead><tbody>' +
-      rows.map(a => '<tr data-id="' + esc(a.id) + '" tabindex="0"><td class="id">' + esc(a.id) + '</td><td>' + esc(a.name) + '</td><td>' + esc(a.system) + '</td><td>' + chip(status(a)) + '</td><td class="num">' + (a._next == null ? 'Check required' : fmtShort(a._next)) + '</td><td class="go">→</td></tr>').join('') +
+      rows.map(a => '<tr data-id="' + esc(a.id) + '" tabindex="0"><td class="id">' + esc(a.id) + '</td><td>' + esc(a.name) + noteFlag(a) + (a.building ? '<br><span class="note hide-sm">' + esc(a.location) + '</span>' : '') + '</td><td>' + esc(a.system) + '</td><td>' + chip(status(a)) + '</td><td class="num">' + (a._next == null ? 'Check required' : fmtShort(a._next)) + '</td><td class="go">→</td></tr>').join('') +
       '</tbody></table></div>' +
       '<div class="pager"><span>' + (ui.page * PAGE + 1) + '–' + (ui.page * PAGE + rows.length) + ' of ' + list.length + ' · Sort by ' + ({ next: 'next due', id: 'asset ID', name: 'asset name', system: 'system', status: 'PM status' })[ui.sort] + '</span>' +
       '<span class="btns"><button class="btn" id="prev"' + (ui.page === 0 ? ' disabled' : '') + '>‹ Previous</button><button class="btn" id="next"' + (ui.page >= pages - 1 ? ' disabled' : '') + '>Next ›</button></span></div>'
-      : '<div class="empty"><b>No matching assets</b><span>Change the system, criticality or search, or clear the status filter.</span><button class="btn" id="resetF">Clear filters</button></div>') +
+      : '<div class="empty"><b>No matching assets</b><span>Change the filters or search, or clear the status filter.</span><button class="btn" id="resetF">Clear filters</button></div>') +
     '</div></section>';
   bindFilters(viewOverview);
   if (focusId && $('#' + focusId)) { const el = $('#' + focusId); el.focus(); if (el.setSelectionRange) el.setSelectionRange(el.value.length, el.value.length); }
@@ -322,7 +424,7 @@ function viewOverview(keepFocus) {
   on('prev', () => { ui.page--; viewOverview(); });
   on('next', () => { ui.page++; viewOverview(); });
   on('clearStatus', () => { ui.status = ''; viewOverview(); });
-  on('resetF', () => { Object.assign(ui, { system: '', crit: '', q: '', status: '', page: 0 }); viewOverview(); });
+  on('resetF', () => { clearFilters(); viewOverview(); });
 }
 
 /* ============================================================================
@@ -337,8 +439,8 @@ function viewCards(keepFocus) {
     '<div class="view-head"><div><div class="eyebrow">Asset Cards</div><h1>Asset directory</h1><p class="sub">' + list.length + ' asset' + (list.length === 1 ? '' : 's') + (ui.status ? ' · ' + STATUS[ui.status][0] : '') + ' · grid view</p></div>' + (ui.status ? '<button class="btn" id="clearStatus">Show all statuses</button>' : '') + '</div>' +
     filtersHtml() +
     (list.length ? '<div class="grid">' + shown.map(a => '<article class="acard"><div class="sys">' + esc(a.system) + ' · ' + esc(a.id) + '</div><h3>' + esc(a.name) + '</h3>' +
-      '<div class="meta">Location: ' + esc(a.location || '—') + '<br>Criticality: ' + esc(a.criticality || '—') + '<br>Next PM: ' + (a._next == null ? 'check required' : fmtDate(a._next)) + '</div>' +
-      '<div class="row">' + chip(status(a)) + '<a class="btn" href="#asset/' + encodeURIComponent(a.id) + '">View asset →</a></div></article>').join('') + '</div>' +
+      '<div class="meta">Location: ' + esc(a.location || '—') + (a.category ? '<br>Category: ' + esc(a.category) + (a.qty > 1 ? ' · Qty ' + a.qty : '') : '') + '<br>Criticality: ' + esc(a.criticality || '—') + '<br>Next PM: ' + (a._next == null ? 'check required' : fmtDate(a._next)) + '</div>' +
+      '<div class="row"><span>' + chip(status(a)) + noteFlag(a) + '</span><a class="btn" href="#asset/' + encodeURIComponent(a.id) + '">View asset →</a></div></article>').join('') + '</div>' +
       (shown.length < list.length ? '<div style="text-align:center"><button class="btn" id="more">Show more (' + (list.length - shown.length) + ' left)</button></div>' : '')
       : '<div class="card"><div class="empty"><b>No matching assets</b><span>Change the filters or search.</span><button class="btn" id="resetF">Clear filters</button></div></div>') +
     '</section>';
@@ -347,7 +449,7 @@ function viewCards(keepFocus) {
   const on = (id, fn) => { const el = $('#' + id); if (el) el.addEventListener('click', fn); };
   on('more', () => { ui.page++; viewCards(); });
   on('clearStatus', () => { ui.status = ''; viewCards(); });
-  on('resetF', () => { Object.assign(ui, { system: '', crit: '', q: '', status: '', page: 0 }); viewCards(); });
+  on('resetF', () => { clearFilters(); viewCards(); });
 }
 
 /* ============================================================================
@@ -372,6 +474,7 @@ function viewAsset(id) {
       S0.tasks.map(t => '<tr style="cursor:default"><td>' + esc(t[0]) + '</td><td class="num">' + freqLabel(t[1]) + '</td></tr>').join('') + '</tbody></table></div>';
   } else if (ui.tab === 'limits') {
     body = '<header><h2>Operating limits</h2><span class="note">Readings outside these need action</span></header><div class="tw"><table><thead><tr><th>Parameter</th><th>Min</th><th>Max</th><th>Unit</th></tr></thead><tbody>' +
+      (S0.limits.length ? '' : '<tr style="cursor:default"><td colspan="4" class="note">No measured operating limits for this asset type. Follow the operator checks.</td></tr>') +
       S0.limits.map(l => '<tr style="cursor:default"><td>' + esc(l[0]) + '</td><td class="num">' + (l[1] == null || l[1] === '' ? '—' : esc(l[1])) + '</td><td class="num">' + (l[2] == null || l[2] === '' ? '—' : esc(l[2])) + '</td><td>' + esc(l[3] || '') + '</td></tr>').join('') + '</tbody></table></div>';
   } else {
     body = '<header><h2>Standards and references</h2></header><ul class="checklist">' + S0.standards.map(x => '<li><span class="box" aria-hidden="true">§</span><span>' + esc(x) + '</span></li>').join('') + '</ul>';
@@ -379,24 +482,71 @@ function viewAsset(id) {
   main.innerHTML = '<section class="view">' +
     '<a class="back" href="#cards">' + ICON.back + 'Back to directory</a>' +
     '<div class="view-head"><div><div class="eyebrow">Asset Detail</div><h1>' + esc(a.id) + ' · ' + esc(a.name) + '</h1></div>' +
-      '<div class="field" style="min-width:200px"><label for="pick">Asset ID</label><select id="pick">' + assets.map(x => '<option value="' + esc(x.id) + '"' + (x.id === a.id ? ' selected' : '') + '>' + esc(x.id) + ' · ' + esc(x.name) + '</option>').join('') + '</select></div></div>' +
+      '<div class="field" style="flex:1 1 220px;max-width:420px"><label for="pick">Asset ID</label>' + (assets.length < PICK_MAX
+        ? '<select id="pick">' + assets.map(x => '<option value="' + esc(x.id) + '"' + (x.id === a.id ? ' selected' : '') + '>' + esc(x.id) + ' · ' + esc(x.name) + '</option>').join('') + '</select>'
+        : '<input id="pick" list="pickIds" value="' + esc(a.id) + '" placeholder="ID, name, serial or tag" autocomplete="off" spellcheck="false"><datalist id="pickIds"></datalist>') + '</div></div>' +
     '<div class="card summary"><div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center"><b>' + esc(a.system) + '</b><span>Criticality: <b>' + esc(a.criticality || '—') + '</b></span><span>PM status: ' + chip(s) + '</span>' + (a._lastResult === 'fail' ? '<span class="chip s-overdue">Last check failed</span>' : '') + '</div>' +
+      (a.note ? '<div class="banner">' + ICON.warn + '<span><b>Register data check:</b> ' + noteHtml(a.note) + '</span></div>' : '') +
       '<dl class="kv"><div><dt>Location</dt><dd>' + esc(a.location || '—') + '</dd></div><div><dt>Responsible</dt><dd>' + esc(a.responsible || '—') + '</dd></div>' +
       '<div><dt>Last check</dt><dd>' + (a._last == null ? 'None recorded' : fmtDate(a._last) + '<br><span class="note">' + esc(a._lastType || '') + '</span>') + '</dd></div>' +
       '<div><dt>Next PM</dt><dd>' + (a._next == null ? 'Check required' : fmtDate(a._next)) + '</dd></div>' +
       '<div><dt>Days to PM</dt><dd class="num" style="color:' + (dt == null ? 'var(--ink-2)' : dt < 0 ? 'var(--red)' : dt <= DUE_SOON_DAYS ? 'var(--orange)' : 'var(--green)') + '">' + (dt == null ? '—' : dt < 0 ? Math.abs(dt) + ' overdue' : dt) + '</dd></div>' +
-      '<div><dt>PM frequency</dt><dd>' + freqLabel(a.freq || 30) + '</dd></div></dl></div>' +
+      '<div><dt>PM frequency</dt><dd>' + freqLabel(a.freq || 30) + '</dd></div>' + registerKv(a) + '</dl></div>' +
     '<div class="card qr-card"><div class="qr">' + qrSvg(qrPayload(a)) + '</div><div style="display:grid;gap:6px;min-width:0"><b>Asset QR label</b><span class="link">' + esc(qrPayload(a)) + '</span><span class="note">' + (qrBase() ? 'Scanning opens this asset in the hosted app.' : 'Readable by Scan QR in this app. Set a hosted link under QR Labels for phone cameras.') + '</span><div><a class="btn" href="#labels" id="lblOne">Print label</a></div></div></div>' +
     '<div class="tabs" role="tablist">' + tabs.map(t => '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>').join('') + '</div>' +
     '<div class="card">' + body + '</div>' +
     '<div class="card"><header><h2>Check history</h2><span class="note">' + recs.length + ' on this device</span></header>' +
       (recs.length ? '<div class="hist">' + recs.slice(0, 10).map(histRow).join('') + '</div>' : '<div class="empty"><span>No checks recorded on this device yet.</span></div>') + '</div>' +
     '</section>';
-  $('#pick').addEventListener('change', e => { location.hash = 'asset/' + e.target.value; });
-  const lo = $('#lblOne'); if (lo) lo.addEventListener('click', () => { Object.assign(ui, { system: '', crit: '', status: '', q: a.id }); });
+  if (assets.length < PICK_MAX) $('#pick').addEventListener('change', e => { location.hash = 'asset/' + e.target.value; });
+  else bindPicker(a);
+  const lo = $('#lblOne'); if (lo) lo.addEventListener('click', () => { clearFilters(); ui.q = a.id; });
   main.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { ui.tab = b.dataset.tab; viewAsset(a.id); }));
 }
-function freqLabel(d) { d = +d; return d === 7 ? 'Weekly' : d === 15 ? 'Fortnightly' : d === 30 ? 'Monthly' : d === 90 ? 'Quarterly' : d === 180 ? 'Half-yearly' : d === 365 ? 'Yearly' : 'Every ' + d + ' days'; }
+// Above this many assets the Asset ID picker is a search box with a short suggestion list, not a full <select>.
+const PICK_MAX = 400;
+function bindPicker(a) {
+  const inp = $('#pick'), dl = $('#pickIds');
+  const go = () => {
+    const v = inp.value.trim().toLowerCase();
+    const hit = v && assets.find(x => x.id.toLowerCase() === v);
+    if (hit) { if (hit.id !== a.id) location.hash = 'asset/' + hit.id; }
+    else if (v) toast('No asset with ID "' + inp.value.trim() + '". Pick one from the suggestions.');
+  };
+  let t;
+  inp.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const q = inp.value.trim().toLowerCase(), out = [];
+      if (q) for (let i = 0; i < assets.length && out.length < 30; i++) if (haystack(assets[i]).indexOf(q) >= 0) out.push(assets[i]);
+      dl.innerHTML = out.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name + (x.building ? ' · ' + x.building : '')) + '</option>').join('');
+    }, 120);
+  });
+  inp.addEventListener('focus', () => inp.select());
+  inp.addEventListener('change', go);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+/** Register data note with every known asset ID in it linked to that asset. */
+function noteHtml(note) {
+  return esc(note).replace(/\b[A-Z]{2}-\d{4,5}\b/g, id => assets.some(x => x.id === id) ? '<a href="#asset/' + id + '">' + id + '</a>' : id);
+}
+const noteFlag = a => a.note ? ' <span class="flag" title="' + esc(a.note) + '">⚠ note</span>' : '';
+/** Extra Master Asset Register fields for the asset summary; empty ones are left out. */
+function registerKv(a) {
+  const row = (k, v) => v == null || v === '' ? '' : '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>';
+  let life = '';
+  if (a.life || a.lifePct != null) {
+    const p = a.lifePct, col = p == null ? '' : p >= 1 ? 'var(--red)' : p >= 0.8 ? 'var(--orange)' : 'var(--green)';
+    life = (a.life ? a.life + ' years' : '') + (p == null ? '' : (a.life ? ' · ' : '') + '<span style="color:' + col + '">' + Math.round(p * 100) + '% used</span>' +
+      (p >= 1 ? '<br><span class="note">Past its life cycle: review for replacement</span>' : p >= 0.8 ? '<br><span class="note">Nearing end of life: plan replacement</span>' : ''));
+  }
+  return row('Category', esc(a.category)) + row('Building', esc(a.building)) + row('Room', esc(a.room)) + row('Model', esc(a.model)) +
+    row('Serial no.', esc(a.serial)) + row('Asset tag', esc(a.tag)) + row('Quantity', a.qty == null ? '' : '<span class="num">' + esc(a.qty) + '</span>') +
+    row('Year of purchase', a.year ? '<span class="num">' + esc(a.year) + '</span>' : '') + row('Life cycle', life) +
+    row('AMC', a.amc ? 'Yes · ' + esc(a.amc) : '') + row('PPM', a.ppm ? 'Yes · ' + esc(a.ppm) : '') +
+    row('Register source', esc(a.src));
+}
+function freqLabel(d) { d = +d; return d === 7 ? 'Weekly' : d === 15 ? 'Fortnightly' : d === 30 ? 'Monthly' : d === 60 ? 'Bi-monthly' : d === 90 ? 'Quarterly' : d === 180 ? 'Half-yearly' : d === 365 ? 'Yearly' : 'Every ' + d + ' days'; }
 function histRow(r) {
   const fails = r.results.filter(x => x.result === 'Fail').length;
   return '<div class="h">' + (r.photo ? '<img src="' + r.photo + '" alt="Check photo">' : '<span></span>') +
@@ -568,7 +718,7 @@ function downloadTemplate() {
   const help = XLSX.utils.aoa_to_sheet([
     ['How to fill the asset register'],
     ['One row per asset. Asset ID and Asset name are required; everything else is optional.'],
-    ['System: HVAC, Fire safety, Electrical, Plumbing, Water treatment, Lifts, Kitchen, Solar or Pool give a ready SOP template; any other name works too.'],
+    ['System: ' + Object.keys(SYSTEMS).join(', ') + ' give a ready SOP template; any other name works too.'],
     ['Dates: dd/mm/yyyy or a real Excel date.'],
     ['Operator checks and Standards: separate items with a semicolon (;).'],
     ['PPM tasks: Task | frequency in days; separate tasks with a semicolon.'],
@@ -614,7 +764,7 @@ function importFile(file) {
       if (!out.length) { toast('No assets found. The first sheet needs "Asset ID" and "Asset name" columns.'); return; }
       store.imported = { fileName: file.name, at: Date.now(), assets: out };
       try { writeStore(store); } catch (e) { delete store.imported; toast('The register is too large to keep on this device.'); return; }
-      Object.assign(ui, { system: '', crit: '', q: '', status: '', page: 0, current: null });
+      clearFilters(); ui.current = null;
       loadAssets(); closeDlg(); location.hash = 'overview'; route();
       toast('Imported ' + out.length + ' assets from ' + file.name + '.');
     } catch (e) { console.error(e); toast('Could not read that file. Save it as .xlsx or .csv and try again.'); }
@@ -624,8 +774,11 @@ function importFile(file) {
 function openData() {
   const dlg = $('#dlg');
   dlg.innerHTML = '<div class="card" role="dialog" aria-modal="true" aria-labelledby="dlgT"><header><h2 id="dlgT">Data</h2><button class="btn icon" id="dlgX" aria-label="Close">✕</button></header><div class="body">' +
-    '<div><b>Asset list</b><p>' + (source.kind === 'demo' ? 'The app is showing <b>illustrative demo assets</b>. The live register sits in the Power BI dataset behind SOP (1).pbix, which is not part of this app. Import an export of it, or fill the template.' : 'Using <b>' + assets.length + ' assets</b> imported from ' + esc(store.imported.fileName) + ' on ' + fmtDate(store.imported.at) + '.') + '</p></div>' +
-    '<div class="row"><label class="btn primary file-btn">' + ICON.up + '<span>Import assets (.xlsx / .csv)</span><input type="file" id="imp" accept=".xlsx,.xls,.csv"></label><button class="btn" id="tpl">' + ICON.dl + 'Download template</button>' + (source.kind === 'import' ? '<button class="btn" id="useDemo">Use demo data</button>' : '') + '</div>' +
+    '<div><b>Asset list</b><p>' + (source.kind === 'import' ? 'Using <b>' + assets.length + ' assets</b> imported from ' + esc(store.imported.fileName) + ' on ' + fmtDate(store.imported.at) + '. This import replaces the ' + (REG ? 'bundled register' : 'demo data') + ' on this device only.'
+      : source.kind === 'register' ? 'Using the bundled <b>' + esc(regTitle()) + '</b>: <b>' + assets.length + ' assets</b> from ' + esc(REG.source || 'the register workbook') + (REG.generated ? ', generated ' + fmtDate(parseDate(REG.generated + 'T00:00:00')) : '') + '.' + regCounts() + ' The register has no check dates, so assets start as Not checked until a check is recorded here.'
+      : 'The app is showing <b>illustrative demo assets</b>. Import an export of your asset register, or fill the template.') + '</p></div>' +
+    '<div class="row"><label class="btn primary file-btn">' + ICON.up + '<span>Import assets (.xlsx / .csv)</span><input type="file" id="imp" accept=".xlsx,.xls,.csv"></label><button class="btn" id="tpl">' + ICON.dl + 'Download template</button>' +
+      (source.kind === 'import' ? '<button class="btn" id="useBundled">' + (REG ? 'Use bundled register' : 'Use demo data') + '</button>' : '') + '</div>' +
     '<div><b>Check records</b><p>' + store.records.length + ' saved on this device. They stay in this browser until you clear them; export them to share or keep.</p></div>' +
     '<div class="row"><button class="btn" id="exp2"' + (store.records.length ? '' : ' disabled') + '>' + ICON.dl + 'Export records to Excel</button><button class="btn danger" id="clr"' + (store.records.length ? '' : ' disabled') + '>Clear records</button></div>' +
     '<div id="confirmClr" hidden class="banner"><span>Delete all ' + store.records.length + ' saved checks from this device? Export first if you need them.</span><button class="btn danger" id="clrYes">Delete</button><button class="btn" id="clrNo">Keep</button></div>' +
@@ -638,7 +791,7 @@ function openData() {
   $('#imp').addEventListener('change', e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ''; });
   on('tpl', downloadTemplate);
   on('exp2', exportRecords);
-  on('useDemo', () => { delete store.imported; try { writeStore(store); } catch (e) { /* keep in memory */ } Object.assign(ui, { system: '', crit: '', q: '', status: '', page: 0, current: null }); loadAssets(); closeDlg(); route(); toast('Showing demo data.'); });
+  on('useBundled', () => { delete store.imported; try { writeStore(store); } catch (e) { /* keep in memory */ } clearFilters(); ui.current = null; loadAssets(); closeDlg(); route(); toast(REG ? 'Showing the ' + regTitle() + '.' : 'Showing demo data.'); });
   on('clr', () => { $('#confirmClr').hidden = false; });
   on('clrNo', () => { $('#confirmClr').hidden = true; });
   on('clrYes', () => { store.records = []; try { writeStore(store); } catch (e) { /* memory only */ } applyRecords(); closeDlg(); route(); toast('Records cleared.'); });
@@ -648,6 +801,14 @@ function openData() {
     store.theme = v; try { writeStore(store); } catch (e) { /* ignore */ }
   }));
   $('#dlgX').focus();
+}
+function regCounts() {
+  const c = REG.counts || {};
+  const bits = [];
+  if (c.rows) bits.push(c.rows + ' register rows');
+  if (c.mergedRows) bits.push(c.mergedRows + ' identical rows merged (quantities summed)');
+  if (c.removedDuplicates) bits.push(c.removedDuplicates + ' duplicates removed');
+  return bits.length ? ' ' + bits.join(', ') + '.' : '';
 }
 function closeDlg() { $('#dlg').hidden = true; $('#dlg').innerHTML = ''; }
 
@@ -713,7 +874,7 @@ function viewLabels() {
   main.innerHTML = '<section class="view">' +
     '<div class="view-head no-print"><div><div class="eyebrow">QR Labels</div><h1>Asset QR codes</h1><p class="sub">Print and stick one label on each asset. Scanning it opens that asset’s SOP and Record check.</p></div>' +
       (HOSTED ? '<span class="note" style="max-width:320px">To print labels, open the offline app file in a browser and use Print there.</span>'
-        : '<button class="btn primary" id="printL"' + (list.length ? '' : ' disabled') + '>Print ' + list.length + ' label' + (list.length === 1 ? '' : 's') + '</button>') + '</div>' +
+        : '<button class="btn primary" id="printL"' + (list.length ? '' : ' disabled') + '>Print ' + shown.length + ' label' + (shown.length === 1 ? '' : 's') + '</button>') + '</div>' +
     '<div class="card no-print"><header><h2>Where the QR codes link</h2></header><div class="dlg-body" style="padding:16px;display:grid;gap:10px">' +
       '<div class="field"><label for="qrBase">Link to the hosted copy of this app</label><input id="qrBase" type="url" inputmode="url" placeholder="https://…" value="' + esc(base) + '"></div>' +
       '<p class="note" style="margin:0">' + (base
@@ -724,9 +885,10 @@ function viewLabels() {
     '<div class="no-print">' + filtersHtml() + '</div>' +
     '<div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="note">Label size</span>' +
       [['s', 'Small · 4 per row'], ['m', 'Medium · 3 per row'], ['l', 'Large · 2 per row']].map(o => '<button class="btn" data-size="' + o[0] + '" aria-pressed="' + (size === o[0]) + '"' + (size === o[0] ? ' style="border-color:var(--brand);color:var(--brand)"' : '') + '>' + o[1] + '</button>').join('') +
-      (list.length > shown.length ? '<span class="note">Showing the first ' + shown.length + '; filter by system or location to print the rest.</span>' : '') + '</div>' +
+      '<span class="note">' + (list.length > shown.length ? 'Showing the first ' + shown.length + ' of ' + list.length + ' matching assets. Filter by building (then system or category) to print the rest in batches.' : list.length + ' matching asset' + (list.length === 1 ? '' : 's') + '.') + '</span></div>' +
     (list.length ? '<div class="size-' + size + '"><div class="labels">' + shown.map(a =>
-      '<div class="label"><div class="qr">' + qrSvg(qrPayload(a)) + '</div><div class="t"><span class="org">AKA · SOP maintenance</span><span class="id">' + esc(a.id) + '</span><span class="nm">' + esc(a.name) + '</span><span class="mt">' + esc(a.system) + (a.location ? ' · ' + esc(a.location) : '') + '</span><span class="cta">Scan to open SOP &amp; record check</span></div></div>').join('') + '</div></div>'
+      '<div class="label"><div class="qr">' + qrSvg(qrPayload(a)) + '</div><div class="t"><span class="org">AKA · SOP maintenance</span><span class="id">' + esc(a.id) + '</span><span class="nm">' + esc(a.name) + '</span><span class="mt">' + esc(a.system) + (a.location ? ' · ' + esc(a.location) : '') + '</span>' +
+        (a.tag || a.serial ? '<span class="mt">' + (a.tag ? 'Tag ' + esc(a.tag) : '') + (a.tag && a.serial ? ' · ' : '') + (a.serial ? 'S/N ' + esc(a.serial) : '') + '</span>' : '') + '<span class="cta">Scan to open SOP &amp; record check</span></div></div>').join('') + '</div></div>'
       : '<div class="card"><div class="empty"><b>No matching assets</b><span>Change the filters or search.</span></div></div>') +
     '</section>';
   bindFilters(viewLabels);
@@ -769,7 +931,7 @@ function viewScan() {
     '<p class="err-msg" id="camMsg" hidden></p>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap">' + (HOSTED ? '' : '<button class="btn primary" id="camStart">Start camera</button>') +
       '<label class="btn file-btn">' + ICON.cam + '<span>Scan from a photo</span><input type="file" id="shot" accept="image/*" capture="environment"></label></div>' +
-    '<div class="card" style="padding:16px;display:grid;gap:8px"><div class="field"><label for="manual">Or type the asset ID</label><input id="manual" list="ids" placeholder="e.g. AST-001" autocomplete="off"></div>' +
+    '<div class="card" style="padding:16px;display:grid;gap:8px"><div class="field"><label for="manual">Or type the asset ID</label><input id="manual" list="ids" placeholder="e.g. ' + esc(assets.length ? assets[0].id : 'AST-001') + '" autocomplete="off"></div>' +
       '<datalist id="ids">' + assets.slice(0, 500).map(a => '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join('') + '</datalist>' +
       '<button class="btn" id="manualGo">Open asset</button></div>' +
     '</div></section>';

@@ -20,6 +20,8 @@ CDN = {
     "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js": VENDOR / "three.r128.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js": VENDOR / "xlsx-0.18.5.full.min.js",
 }
+# Scripts the page can run without (sop/register.js falls back to demo data).
+OPTIONAL = {"register.js"}
 FACES = [("Archivo", "archivo", w) for w in (500, 600, 700, 800)] + \
         [("IBM Plex Mono", "ibm-plex-mono", w) for w in (400, 500, 600)] + \
         [("IBM Plex Sans", "ibm-plex-sans", w) for w in (400, 500, 600)]
@@ -40,6 +42,9 @@ def build(src_dir, dest_name, short_name, theme):
     def inline(match):
         src = match.group(1)
         path = CDN.get(src) or src_dir / src
+        if src in OPTIONAL and not path.exists():
+            print(f"  {src} not found; building without it")
+            return ""
         code = path.read_text(encoding="utf-8")
         # A literal </script> inside a library would end the tag early.
         code = re.sub(r"</(script)", r"<\\/\1", code, flags=re.I)

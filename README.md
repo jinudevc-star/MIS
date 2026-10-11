@@ -33,7 +33,21 @@ Source: `sop/index.html` and `sop/app.js`.
 - The hosted copy is built with `python3 tools/build_artifact_copy.py dist/SOP_Maintenance_App.html <out.html>`. It can't print or use the live camera, so print labels from the offline file. Its Excel exports go through the viewer's download confirmation.
 - QR libraries are in `sop/vendor/`: qrcode-generator 1.4.4 (MIT) and jsQR 1.4.0 (Apache-2.0).
 
-The app opens on **illustrative demo assets**, labelled *Demo data*. Their counts match the wireframe: 120 assets, 12 overdue, 8 due soon, 92 PM OK, 8 not checked, 76.7% compliance. The live register sits in the Power BI dataset behind `SOP (1).pbix`, which isn't included, so import an export of it to work with real assets. Check results, notes and photos are stored in that browser on that device. Export them to share.
+The app opens on the **FM Master Asset Register (Sep 2026)**, bundled as `sop/register.js`: 5,783 assets covering 13,676 units, IDs `EQ-` (equipment), `BL-` (building), `FF-` (master furniture), `HE-` (house equipment), `FR-` (FR furniture) and `DP-` (dorm parents furniture). The register has no PM dates, so every asset starts as *Not checked*. Check results, notes and photos are stored in that browser on that device. Export them to share. An Excel import on a device takes precedence; *Use bundled register* under Data switches back.
+
+### Updating the asset register
+
+1. Replace `data/Master_Asset_Register_for_FM_Sep_2026.xlsx` (or point `tools/import_register.py` at the new file).
+2. Run `python3 tools/import_register.py`. It writes `sop/register.js` and `dist/Asset_Register_Dedup_Report.xlsx`.
+3. Run `python3 tools/build_standalone.py`.
+
+How duplicates are handled (details in the report):
+- **True double entries** (same serial or unique tag *and* the same building, room and description) are removed, and the kept row is completed from the removed one.
+- **Identical rows with no unique ID** are separate units of the same item. They're merged into one entry with the quantity summed.
+- **Same serial or tag on clearly separate units** (different place, rating, or their own tag) are kept, and both get a *Register data check* note asking FM to verify the serial. Serials are compared without punctuation.
+- Status words typed into the serial column (Damaged, Shifted) become notes.
+- **Possible overlaps** between the furniture sheets and the master list, and between House Equip and the master list's bulk residence appliances, are listed in the report but not removed. FM decides those.
+- Sheet1 (residents' names) is never read, and names typed into House Equip *Room No.* are dropped.
 
 ---
 

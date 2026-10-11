@@ -69,6 +69,7 @@ h1, h2, h3 { margin: 0; font-family: var(--font-display); text-wrap: balance; }
 .brand span { color: var(--ink-2); font-size: 13px; white-space: nowrap; }
 .bar .grow { flex: 1 1 0; }
 .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); white-space: nowrap; }
+.pill > span { overflow: hidden; text-overflow: ellipsis; }
 .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); }
 .pill.live i { background: var(--green); }
 .btn {
@@ -105,7 +106,7 @@ main { padding: 24px clamp(16px, 3vw, 32px) 40px; min-width: 0; }
 .sub { color: var(--ink-2); margin: 2px 0 0; }
 
 /* ---------- filters ---------- */
-.filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.filters { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 12px; }
 .field { display: grid; gap: 4px; min-width: 0; }
 .field label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .field select, .field input, .field textarea {
@@ -129,6 +130,8 @@ button.stat:hover { transform: translateY(-2px); }
 .banner.ok { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
 .banner svg { width: 20px; height: 20px; color: var(--orange); flex: none; }
 .banner.ok svg { color: var(--green); }
+.banner.info { background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 30%, transparent); }
+.banner.info svg { color: var(--blue); }
 
 /* ---------- chips ---------- */
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
@@ -137,6 +140,8 @@ button.stat:hover { transform: translateY(-2px); }
 .s-due { color: var(--orange); background: var(--orange-soft); }
 .s-ok { color: var(--green); background: var(--green-soft); }
 .s-nc { color: var(--grey); background: var(--grey-soft); }
+.flag { font-size: 12px; font-weight: 600; color: var(--orange); white-space: nowrap; }
+.banner a { color: inherit; font-weight: 700; }
 
 /* ---------- table ---------- */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); min-width: 0; }
@@ -169,8 +174,8 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
 /* ---------- detail ---------- */
 .back { color: var(--brand); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .summary { padding: 16px; display: grid; gap: 14px; }
-.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 18px; }
-.kv div { display: grid; gap: 2px; min-width: 0; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 18px; }
+.kv div { display: grid; gap: 2px; min-width: 0; align-content: start; }
 .kv dt { font-size: 12px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
 .kv dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
@@ -259,7 +264,13 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
 }
 
 /* ---------- responsive ---------- */
-@media (max-width: 1000px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) {
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 4–5 filters wrap to 3 per row; search fills the rest of the last row. */
+  .filters.n4, .filters.n5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .filters.n4 .field:last-child { grid-column: 1 / -1; }
+  .filters.n5 .field:last-child { grid-column: span 2; }
+}
 @media (max-width: 760px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
   .rail {
@@ -270,12 +281,13 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
   .rail .foot { display: none; }
   .rail a[data-nav="labels"], .rail a[data-nav="asset"] { display: none; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-  .filters { grid-template-columns: 1fr 1fr; }
-  .filters .field:last-child { grid-column: 1 / -1; }
+  .filters, .filters.n4, .filters.n5 { grid-template-columns: 1fr 1fr; }
+  .filters .field:last-child, .filters.n5 .field:last-child { grid-column: 1 / -1; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .brand span { display: none; }
   #userName { display: none; }
   .bar { flex-wrap: nowrap; padding-inline: 14px; }
+  .pill { min-width: 0; flex: 0 1 auto; }
   .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tabs button:nth-child(2) { border-right: 0; }
   .tabs button:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -316,6 +328,8 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="vendor/qrcode-generator-1.4.4.js"></script>
 <script src="vendor/jsQR-1.4.0.js"></script>
+<!-- Master Asset Register (tools/import_register.py). Optional: without it the app falls back to demo data. -->
+<script src="register.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
