@@ -220,6 +220,44 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
 .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: var(--r); font-size: 14px; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
 
+
+/* ---------- QR ---------- */
+.qr svg { display: block; width: 100%; height: auto; }
+.qr-card { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; align-items: center; padding: 16px; }
+.qr-card .qr { background: #fff; padding: 8px; border-radius: 6px; border: 1px solid var(--line); }
+.qr-card .link { font-family: var(--font-num); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.labels { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 12px; }
+.label {
+  background: #fff; color: #111; border: 1px dashed #b9c3be; border-radius: 6px; padding: 10px;
+  display: grid; grid-template-columns: var(--qr, 96px) minmax(0, 1fr); gap: 10px; align-items: center; break-inside: avoid; page-break-inside: avoid;
+}
+.label .t { display: grid; gap: 2px; min-width: 0; }
+.label .org { font-size: 9.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #0d7a4c; }
+.label .id { font-family: var(--font-num); font-weight: 600; font-size: 16px; }
+.label .nm { font-weight: 600; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.label .mt { font-size: 11px; color: #555; line-height: 1.3; }
+.label .cta { font-size: 10px; color: #555; margin-top: 2px; }
+.size-s { --cols: 4; --qr: 72px; } .size-s .label .nm { font-size: 11.5px; } .size-s .label .id { font-size: 13px; }
+.size-m { --cols: 3; --qr: 96px; }
+.size-l { --cols: 2; --qr: 140px; } .size-l .label .nm { font-size: 15px; } .size-l .label .id { font-size: 19px; }
+.cam { position: relative; background: #000; border-radius: var(--r); overflow: hidden; aspect-ratio: 3 / 4; max-height: 62vh; width: 100%; max-width: 100%; }
+.cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam .frame { position: absolute; inset: 18%; border: 3px solid rgba(255, 255, 255, .9); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .35); }
+.cam .scanline { position: absolute; left: 18%; right: 18%; height: 2px; background: var(--brand); top: 18%; animation: scan 2.2s ease-in-out infinite; box-shadow: 0 0 12px var(--brand); }
+@keyframes scan { 0%, 100% { top: 20%; } 50% { top: 80%; } }
+.scanwrap { max-width: 520px; width: 100%; margin: 0 auto; display: grid; gap: 14px; }
+@media (max-width: 760px) { .labels { --cols: 1 !important; } .size-s .labels, .labels { grid-template-columns: repeat(min(var(--cols), 2), minmax(0, 1fr)); } .qr-card { grid-template-columns: 96px minmax(0, 1fr); } }
+@media print {
+  @page { margin: 10mm; }
+  body { background: #fff !important; }
+  .bar, .rail, .no-print, .toast, .dlg { display: none !important; }
+  .app { display: block; }
+  main { padding: 0 !important; }
+  .view { animation: none; max-width: none; gap: 0; }
+  .labels { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)) !important; gap: 6mm; }
+  .label { border-color: #999; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 1000px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
@@ -230,6 +268,7 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
   }
   .rail a { flex: 1 1 0; flex-direction: column; gap: 3px; padding: 7px 4px; font-size: 11.5px; text-align: center; }
   .rail .foot { display: none; }
+  .rail a[data-nav="labels"], .rail a[data-nav="asset"] { display: none; }
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .filters { grid-template-columns: 1fr 1fr; }
   .filters .field:last-child { grid-column: 1 / -1; }
@@ -262,6 +301,8 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
     <a href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>PM Overview</a>
     <a href="#cards" data-nav="cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="8" height="7" rx="1"/><rect x="13" y="4" width="8" height="7" rx="1"/><rect x="3" y="13" width="8" height="7" rx="1"/><rect x="13" y="13" width="8" height="7" rx="1"/></svg>Asset Cards</a>
     <a href="#asset" data-nav="asset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>Asset Detail</a>
+    <a href="#scan" data-nav="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg>Scan QR</a>
+    <a href="#labels" data-nav="labels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>QR Labels</a>
     <a href="#records" data-nav="records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Check Records</a>
     <div class="foot">SOP workspace<br>Aga Khan Academy</div>
   </nav>
@@ -273,6 +314,8 @@ td.go { text-align: right; color: var(--brand); font-weight: 700; }
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="vendor/qrcode-generator-1.4.4.js"></script>
+<script src="vendor/jsQR-1.4.0.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

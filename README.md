@@ -26,6 +26,13 @@ Source: `sop/index.html` and `sop/app.js`.
   - Switch back to demo data, export records, or clear records.
   - Choose light, dark or follow-device appearance.
 
+- **QR Labels**: one printable label per asset (small, medium or large; filter by system, criticality or search), and a QR on each asset's page.
+  - Each QR holds `https://claude.ai/artifact/RPB151i4sxsE3yJR64tmwv#<asset ID>`, the hosted copy of this app. Any phone camera opens the asset there directly, as long as that page is shared with the person scanning.
+  - To use your own hosting (intranet, SharePoint, web server), paste its address under QR Labels before printing.
+- **Scan QR**: reads the same labels inside the offline file, through the live camera where the browser allows it, from a photo, or by typing the asset ID. It then opens that asset.
+- The hosted copy is built with `python3 tools/build_artifact_copy.py dist/SOP_Maintenance_App.html <out.html>`. It can't print or use the live camera, so print labels from the offline file. Its Excel exports go through the viewer's download confirmation.
+- QR libraries are in `sop/vendor/`: qrcode-generator 1.4.4 (MIT) and jsQR 1.4.0 (Apache-2.0).
+
 The app opens on **illustrative demo assets**, labelled *Demo data*. Their counts match the wireframe: 120 assets, 12 overdue, 8 due soon, 92 PM OK, 8 not checked, 76.7% compliance. The live register sits in the Power BI dataset behind `SOP (1).pbix`, which isn't included, so import an export of it to work with real assets. Check results, notes and photos are stored in that browser on that device. Export them to share.
 
 ---

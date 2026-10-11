@@ -386,12 +386,14 @@ function viewAsset(id) {
       '<div><dt>Next PM</dt><dd>' + (a._next == null ? 'Check required' : fmtDate(a._next)) + '</dd></div>' +
       '<div><dt>Days to PM</dt><dd class="num" style="color:' + (dt == null ? 'var(--ink-2)' : dt < 0 ? 'var(--red)' : dt <= DUE_SOON_DAYS ? 'var(--orange)' : 'var(--green)') + '">' + (dt == null ? '—' : dt < 0 ? Math.abs(dt) + ' overdue' : dt) + '</dd></div>' +
       '<div><dt>PM frequency</dt><dd>' + freqLabel(a.freq || 30) + '</dd></div></dl></div>' +
+    '<div class="card qr-card"><div class="qr">' + qrSvg(qrPayload(a)) + '</div><div style="display:grid;gap:6px;min-width:0"><b>Asset QR label</b><span class="link">' + esc(qrPayload(a)) + '</span><span class="note">' + (qrBase() ? 'Scanning opens this asset in the hosted app.' : 'Readable by Scan QR in this app. Set a hosted link under QR Labels for phone cameras.') + '</span><div><a class="btn" href="#labels" id="lblOne">Print label</a></div></div></div>' +
     '<div class="tabs" role="tablist">' + tabs.map(t => '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>').join('') + '</div>' +
     '<div class="card">' + body + '</div>' +
     '<div class="card"><header><h2>Check history</h2><span class="note">' + recs.length + ' on this device</span></header>' +
       (recs.length ? '<div class="hist">' + recs.slice(0, 10).map(histRow).join('') + '</div>' : '<div class="empty"><span>No checks recorded on this device yet.</span></div>') + '</div>' +
     '</section>';
   $('#pick').addEventListener('change', e => { location.hash = 'asset/' + e.target.value; });
+  const lo = $('#lblOne'); if (lo) lo.addEventListener('click', () => { Object.assign(ui, { system: '', crit: '', status: '', q: a.id }); });
   main.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { ui.tab = b.dataset.tab; viewAsset(a.id); }));
 }
 function freqLabel(d) { d = +d; return d === 7 ? 'Weekly' : d === 15 ? 'Fortnightly' : d === 30 ? 'Monthly' : d === 90 ? 'Quarterly' : d === 180 ? 'Half-yearly' : d === 365 ? 'Yearly' : 'Every ' + d + ' days'; }
@@ -519,6 +521,27 @@ function viewRecords() {
 /* ============================================================================
    DATA — import register, export records, template, reset
    ============================================================================ */
+// True inside the claude.ai hosted copy, where printing and the live camera are blocked
+// and files are handed over through the viewer's download confirmation.
+const HOSTED = !!(window.claude && typeof window.claude.use === 'function');
+async function saveWorkbook(wb, filename) {
+  if (HOSTED) {
+    let dl = null;
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (!dl) { toast('Downloads are not available in this view. Open the offline app file to export.'); return false; }
+    try {
+      await dl.save({ filename: filename, data: new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]) });
+      return true;
+    } catch (e) {
+      if (e && e.code === 'declined') return false;
+      if (e && e.code === 'rate_limited') { toast('A download prompt is already open.'); return false; }
+      toast('The file could not be offered here. Open the offline app file to export.');
+      return false;
+    }
+  }
+  XLSX.writeFile(wb, filename);
+  return true;
+}
 function hasXLSX() { if (window.XLSX) return true; toast('The spreadsheet reader is not available in this copy of the app.'); return false; }
 function exportRecords() {
   if (!hasXLSX() || !store.records.length) return;
@@ -529,8 +552,8 @@ function exportRecords() {
   })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Check records');
-  XLSX.writeFile(wb, 'AKA_SOP_check_records_' + new Date().toISOString().slice(0, 10) + '.xlsx');
-  toast('Exported ' + store.records.length + ' checks to Excel.');
+  saveWorkbook(wb, 'AKA_SOP_check_records_' + new Date().toISOString().slice(0, 10) + '.xlsx')
+    .then(ok => { if (ok) toast('Exported ' + store.records.length + ' checks to Excel.'); });
 }
 const TEMPLATE_HEAD = ['Asset ID', 'Asset name', 'System', 'Location', 'Criticality', 'Responsible', 'PM frequency (days)', 'Last check', 'Next PM', 'Operator checks', 'PPM tasks', 'Limits', 'Standards'];
 function downloadTemplate() {
@@ -555,7 +578,7 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Assets');
   XLSX.utils.book_append_sheet(wb, help, 'How to fill');
-  XLSX.writeFile(wb, 'AKA_SOP_asset_register_template.xlsx');
+  saveWorkbook(wb, 'AKA_SOP_asset_register_template.xlsx');
 }
 function importFile(file) {
   if (!hasXLSX()) return;
@@ -644,14 +667,186 @@ function openUser() {
   $('#un').focus(); $('#un').select();
 }
 
+
+/* ============================================================================
+   QR CODES — each asset label encodes "<app link>#<asset token>". Scanned
+   with a phone camera it opens the hosted copy straight on that asset; the
+   in-app scanner reads the same labels in the offline file.
+   ============================================================================ */
+// Hosted copy of this app. Labels link here unless a different link is saved under QR Labels.
+const DEFAULT_QR_BASE = 'https://claude.ai/artifact/RPB151i4sxsE3yJR64tmwv';
+const qrBase = () => (store.qrBase != null ? store.qrBase : DEFAULT_QR_BASE).trim().replace(/#.*$/, '');
+/** URL-hash-safe token for an asset ID (plain IDs stay readable; others are hex-encoded). */
+function assetToken(id) {
+  if (/^[A-Za-z0-9._-]+$/.test(id)) return id;
+  return '~' + Array.from(new TextEncoder().encode(id)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function tokenToId(t) {
+  t = String(t || '').trim();
+  if (/^~[0-9a-f]+$/i.test(t)) { try { return new TextDecoder().decode(new Uint8Array(t.slice(1).match(/../g).map(h => parseInt(h, 16)))); } catch (e) { return null; } }
+  return t;
+}
+function qrPayload(a) { const b = qrBase(); return b ? b + '#' + assetToken(a.id) : 'AKASOP:' + assetToken(a.id); }
+function qrSvg(text) {
+  if (!window.qrcode) return '';
+  const q = qrcode(0, 'M'); q.addData(unescape(encodeURIComponent(text))); q.make();
+  return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true, alt: 'QR code' });
+}
+/** Find the asset a scanned text points at: a link with #token, an AKASOP: code, or a bare ID. */
+function assetFromScan(text) {
+  text = String(text || '').trim();
+  let t = text;
+  const hash = text.indexOf('#');
+  if (hash >= 0) t = text.slice(hash + 1);
+  else if (/^AKASOP:/i.test(text)) t = text.slice(7);
+  t = t.replace(/^asset\//, '');
+  const id = tokenToId(decodeURIComponent(t));
+  return assets.find(a => a.id === id) || assets.find(a => a.id.toLowerCase() === String(id).toLowerCase()) || null;
+}
+
+function viewLabels() {
+  setNav('labels');
+  const list = sorted(filtered(false)).sort((x, y) => x.id.localeCompare(y.id, undefined, { numeric: true }));
+  const base = qrBase();
+  const size = store.labelSize || 'm';
+  const shown = list.slice(0, 240);
+  main.innerHTML = '<section class="view">' +
+    '<div class="view-head no-print"><div><div class="eyebrow">QR Labels</div><h1>Asset QR codes</h1><p class="sub">Print and stick one label on each asset. Scanning it opens that asset’s SOP and Record check.</p></div>' +
+      (HOSTED ? '<span class="note" style="max-width:320px">To print labels, open the offline app file in a browser and use Print there.</span>'
+        : '<button class="btn primary" id="printL"' + (list.length ? '' : ' disabled') + '>Print ' + list.length + ' label' + (list.length === 1 ? '' : 's') + '</button>') + '</div>' +
+    '<div class="card no-print"><header><h2>Where the QR codes link</h2></header><div class="dlg-body" style="padding:16px;display:grid;gap:10px">' +
+      '<div class="field"><label for="qrBase">Link to the hosted copy of this app</label><input id="qrBase" type="url" inputmode="url" placeholder="https://…" value="' + esc(base) + '"></div>' +
+      '<p class="note" style="margin:0">' + (base
+        ? 'Each label opens <b>' + esc(base) + '#&lt;asset ID&gt;</b>, so any phone camera goes straight to the asset. The <b>Scan QR</b> page in this file reads the same labels offline.'
+        : 'No link set, so labels hold a short code that only the <b>Scan QR</b> page of this app can read. Put the app online (claude.ai artifact, intranet, SharePoint or a web server) and paste its address here so phone cameras open the asset directly.') + '</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="saveBase">Save link</button>' + (DEFAULT_QR_BASE && base !== DEFAULT_QR_BASE ? '<button class="btn" id="resetBase">Use the hosted copy</button>' : '') + '</div>' +
+    '</div></div>' +
+    '<div class="no-print">' + filtersHtml() + '</div>' +
+    '<div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="note">Label size</span>' +
+      [['s', 'Small · 4 per row'], ['m', 'Medium · 3 per row'], ['l', 'Large · 2 per row']].map(o => '<button class="btn" data-size="' + o[0] + '" aria-pressed="' + (size === o[0]) + '"' + (size === o[0] ? ' style="border-color:var(--brand);color:var(--brand)"' : '') + '>' + o[1] + '</button>').join('') +
+      (list.length > shown.length ? '<span class="note">Showing the first ' + shown.length + '; filter by system or location to print the rest.</span>' : '') + '</div>' +
+    (list.length ? '<div class="size-' + size + '"><div class="labels">' + shown.map(a =>
+      '<div class="label"><div class="qr">' + qrSvg(qrPayload(a)) + '</div><div class="t"><span class="org">AKA · SOP maintenance</span><span class="id">' + esc(a.id) + '</span><span class="nm">' + esc(a.name) + '</span><span class="mt">' + esc(a.system) + (a.location ? ' · ' + esc(a.location) : '') + '</span><span class="cta">Scan to open SOP &amp; record check</span></div></div>').join('') + '</div></div>'
+      : '<div class="card"><div class="empty"><b>No matching assets</b><span>Change the filters or search.</span></div></div>') +
+    '</section>';
+  bindFilters(viewLabels);
+  const on = (id, fn) => { const el = $('#' + id); if (el) el.addEventListener('click', fn); };
+  on('printL', () => { try { window.print(); } catch (e) { toast('Printing is not available here. Open the app file in a browser to print.'); } });
+  on('saveBase', () => {
+    const v = $('#qrBase').value.trim();
+    if (v && !/^https?:\/\/[^\s]+$/i.test(v)) { toast('Enter a full web address starting with https://'); return; }
+    store.qrBase = v.replace(/#.*$/, '');
+    try { writeStore(store); } catch (e) { /* memory only */ }
+    viewLabels(); toast(v ? 'Labels now link to ' + store.qrBase : 'Labels now hold an in-app code.');
+  });
+  on('resetBase', () => { delete store.qrBase; try { writeStore(store); } catch (e) { /* memory only */ } viewLabels(); });
+  main.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => { store.labelSize = b.dataset.size; try { writeStore(store); } catch (e) { /* memory only */ } viewLabels(); }));
+}
+
+let scanStream = null, scanRaf = 0;
+function stopScan() {
+  cancelAnimationFrame(scanRaf); scanRaf = 0;
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+}
+function goScanned(text) {
+  const a = assetFromScan(text);
+  if (!a) { toast('That QR code is not an asset in this list.'); return false; }
+  stopScan();
+  if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) { /* ignore */ } }
+  location.hash = 'asset/' + a.id;
+  toast('Opened ' + a.id + ' · ' + a.name);
+  return true;
+}
+function decodeImageData(img) {
+  return window.jsQR ? jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' }) : null;
+}
+function viewScan() {
+  setNav('scan');
+  main.innerHTML = '<section class="view"><div class="scanwrap">' +
+    '<div><div class="eyebrow">Scan QR</div><h1 style="font-size:26px">Scan an asset label</h1><p class="sub">Point the camera at the QR code on the asset.</p></div>' +
+    (HOSTED ? '<div class="banner ok"><span>Point your phone\u2019s camera app at the label: it opens the asset here directly. You can also scan from a photo below.</span></div>'
+      : '<div class="cam" id="cam"><video id="vid" playsinline muted></video><div class="frame"></div><div class="scanline"></div></div>') +
+    '<p class="err-msg" id="camMsg" hidden></p>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' + (HOSTED ? '' : '<button class="btn primary" id="camStart">Start camera</button>') +
+      '<label class="btn file-btn">' + ICON.cam + '<span>Scan from a photo</span><input type="file" id="shot" accept="image/*" capture="environment"></label></div>' +
+    '<div class="card" style="padding:16px;display:grid;gap:8px"><div class="field"><label for="manual">Or type the asset ID</label><input id="manual" list="ids" placeholder="e.g. AST-001" autocomplete="off"></div>' +
+      '<datalist id="ids">' + assets.slice(0, 500).map(a => '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join('') + '</datalist>' +
+      '<button class="btn" id="manualGo">Open asset</button></div>' +
+    '</div></section>';
+  const msg = t => { const m = $('#camMsg'); m.textContent = t; m.hidden = !t; };
+  const start = async () => {
+    msg('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { msg('The camera is not available in this browser or this view. Use Scan from a photo, or type the asset ID.'); return; }
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) { msg('Camera access was refused. Allow camera access for this page, or use Scan from a photo.'); return; }
+    const v = $('#vid'); if (!v) { stopScan(); return; }
+    v.srcObject = scanStream; await v.play().catch(() => {});
+    $('#camStart').hidden = true;
+    let detector = null;
+    try { if ('BarcodeDetector' in window && (await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+    const c = document.createElement('canvas'), g = c.getContext('2d', { willReadFrequently: true });
+    let busy = false;
+    const tick = async () => {
+      if (!scanStream) return;
+      if (!busy && v.readyState >= 2) {
+        busy = true;
+        try {
+          if (detector) {
+            const r = await detector.detect(v);
+            if (r.length && goScanned(r[0].rawValue)) return;
+          } else {
+            const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+            c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+            g.drawImage(v, 0, 0, c.width, c.height);
+            const r = decodeImageData(g.getImageData(0, 0, c.width, c.height));
+            if (r && r.data && goScanned(r.data)) return;
+          }
+        } catch (e) { /* keep scanning */ }
+        busy = false;
+      }
+      scanRaf = requestAnimationFrame(tick);
+    };
+    scanRaf = requestAnimationFrame(tick);
+  };
+  if (!HOSTED) $('#camStart').addEventListener('click', start);
+  $('#shot').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 1400 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        const g = c.getContext('2d'); g.drawImage(img, 0, 0, c.width, c.height);
+        const r = decodeImageData(g.getImageData(0, 0, c.width, c.height));
+        if (!r || !goScanned(r.data)) msg(r ? 'That QR code is not an asset in this list.' : 'No QR code found in the photo. Fill the frame with the label and try again.');
+      };
+      img.onerror = () => msg('That photo could not be read.');
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
+  const manual = () => { const v = $('#manual').value.trim(); if (v && !goScanned(v)) msg('No asset with ID "' + v + '".'); };
+  $('#manualGo').addEventListener('click', manual);
+  $('#manual').addEventListener('keydown', e => { if (e.key === 'Enter') manual(); });
+  // Start straight away where the camera is likely to work without a prompt loop.
+  if (!HOSTED && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext !== false) start();
+}
+
 /* ---------------------------------------------------------------- routing */
 function route() {
   const h = decodeURIComponent(location.hash.replace(/^#/, ''));
   const [view, id] = [h.split('/')[0], h.split('/').slice(1).join('/')];
+  if (view !== 'scan') stopScan();
   if (view === 'cards') { ui.page = 0; viewCards(); }
   else if (view === 'asset') viewAsset(id || ui.current);
   else if (view === 'check') viewCheck(id);
   else if (view === 'records') viewRecords();
+  else if (view === 'labels') { ui.page = 0; viewLabels(); }
+  else if (view === 'scan') viewScan();
+  else if (view && view !== 'overview' && assetFromScan('#' + view)) viewAsset(assetFromScan('#' + view).id);   // QR link: #AST-001
   else { ui.page = 0; viewOverview(); }
   if (view !== 'check') window.scrollTo(0, 0);
 }
