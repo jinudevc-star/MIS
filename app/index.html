@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Facilities MIS Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ============================================================
+   TOKENS — dark-committed control-room palette.
+   Single visual world (a lit instrument deck in a dark room),
+   so every colour is painted explicitly rather than inherited.
+   Series hues validated: adjacent CVD ΔE 8.4 / normal 19.7,
+   3-series all-pairs CVD ΔE 9.4 / normal 20.9 on surface #0e151c.
+   ============================================================ */
+:root{
+  --void:#060a0e; --deck:#0e151c; --deck-2:#16202b; --deck-3:#1d2a37;
+  --edge:#223140; --edge-2:#2f4354;
+  --ink:#f0f5f9; --ink-2:#9db1c1; --ink-3:#61768a; --ink-4:#3d5061;
+
+  --water:#3987e5; --power:#c98500; --chem:#199e70;
+  --solar:#d95926; --dg:#9085e9;   --street:#d55181;
+  --overview:#7d94a6; --team:#e66767; --bldg:#008300;
+  --hvac:#35b8c9; --service:#d55181;
+
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+
+  --good:#2fbf71; --warn:#e0a63a; --crit:#e05252;
+
+  --metal-hi:#cdd9e2; --metal-mid:#6f8496; --metal-lo:#33444f;
+
+  --accent:var(--water);
+  --r:3px;
+  --rail-h:58px; --dock-h:64px;
+
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--void); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+#app{height:100%; display:flex; flex-direction:column; position:relative; isolation:isolate}
+
+/* Deccan eight-point-star (khatim) inlay — the Academy's own geometry,
+   at 3% so it reads as tooling on metal, not wallpaper. */
+#app::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='none' stroke='%23ffffff' stroke-width='1'><rect x='24' y='24' width='72' height='72'/><rect x='24' y='24' width='72' height='72' transform='rotate(45 60 60)'/><circle cx='60' cy='60' r='6'/></g></svg>");
+  background-size:120px 120px; opacity:.035;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 20%,transparent 78%);
+}
+#app::after{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(ellipse 120% 90% at 50% 8%,rgba(57,135,229,.08),transparent 60%),
+             radial-gradient(ellipse 80% 60% at 50% 110%,rgba(0,0,0,.65),transparent 70%);
+}
+
+/* ============================ TOP RAIL ============================ */
+#rail{
+  position:relative; z-index:40; flex:0 0 auto; min-height:var(--rail-h);
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top,0px));
+  background:linear-gradient(180deg,rgba(18,26,35,.96),rgba(10,16,22,.92));
+  border-bottom:1px solid var(--edge);
+  box-shadow:0 1px 0 rgba(205,217,226,.06) inset, 0 10px 30px -18px #000;
+  backdrop-filter:blur(14px);
+}
+.mark{display:flex; align-items:center; gap:10px; min-width:0}
+.mark .glyph{
+  width:30px;height:30px;flex:0 0 auto;border-radius:2px;
+  background:conic-gradient(from 45deg,var(--metal-lo),var(--metal-mid),var(--metal-hi),var(--metal-mid),var(--metal-lo));
+  display:grid;place-items:center;
+  box-shadow:0 0 0 1px var(--edge-2), 0 2px 10px -4px #000;
+}
+.mark .glyph svg{width:18px;height:18px;display:block}
+.mark h1{
+  margin:0; font-family:Archivo,system-ui,sans-serif; font-weight:700;
+  font-size:15px; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
+}
+.mark .sub{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.16em; color:var(--ink-3); text-transform:uppercase; white-space:nowrap;
+}
+.rail-spacer{flex:1 1 auto; min-width:8px}
+
+.selects{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.field{display:flex; flex-direction:column; gap:3px}
+.field label{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.18em; color:var(--ink-3); text-transform:uppercase;
+}
+select{
+  appearance:none; font:inherit; font-size:13px; font-weight:500;
+  color:var(--ink); background:var(--deck-2);
+  border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:6px 30px 6px 10px; cursor:pointer; min-width:132px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%239db1c1' stroke-width='1.4'/></svg>");
+  background-repeat:no-repeat; background-position:right 9px center;
+  box-shadow:0 1px 0 rgba(205,217,226,.07) inset;
+}
+select:hover{border-color:var(--metal-mid)}
+select:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.clock{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
+  color:var(--ink-2); letter-spacing:.06em; font-variant-numeric:tabular-nums;
+  display:flex; flex-direction:column; align-items:flex-end; line-height:1.3;
+}
+.clock b{color:var(--ink); font-weight:600; font-size:14px}
+.live{
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--good);
+  border:1px solid rgba(47,191,113,.35); border-radius:99px; padding:3px 9px;
+  background:rgba(47,191,113,.08); cursor:help;
+}
+.live i{width:6px;height:6px;border-radius:99px;background:var(--good);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(47,191,113,.5)}50%{opacity:.45;box-shadow:0 0 0 5px rgba(47,191,113,0)}}
+
+.btn{
+  font:inherit; font-size:12px; font-weight:500; color:var(--ink-2);
+  background:var(--deck-2); border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:7px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+  box-shadow:0 1px 0 rgba(205,217,226,.07) inset;
+}
+.btn:hover{color:var(--ink); border-color:var(--metal-mid)}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.btn[aria-pressed="true"]{color:var(--void); background:var(--accent); border-color:var(--accent); font-weight:600}
+.btn svg{width:13px;height:13px;display:block}
+
+/* ============================ STAGE ============================ */
+#stage{position:relative; z-index:10; flex:1 1 auto; min-height:0; display:flex}
+#gl{position:absolute; inset:0; width:100%; height:100%; display:block}
+#glfallback{
+  position:absolute; inset:0; display:grid; place-items:center; text-align:center;
+  padding:24px; color:var(--ink-3); font-size:13px;
+}
+
+#hud{
+  position:relative; z-index:20; flex:1 1 auto; min-height:0;
+  display:grid; grid-template-columns:minmax(258px,300px) 1fr minmax(300px,368px);
+  gap:14px; padding:14px 16px; overflow:hidden;
+}
+.col{display:flex; flex-direction:column; gap:12px; min-height:0; overflow:auto; scrollbar-width:thin}
+.col::-webkit-scrollbar{width:6px}
+.col::-webkit-scrollbar-thumb{background:var(--edge-2); border-radius:99px}
+.col-mid{align-items:center; justify-content:space-between; overflow:visible; pointer-events:none}
+
+/* Glass instrument panel with a machined top edge */
+.panel{
+  position:relative; background:linear-gradient(180deg,rgba(22,32,43,.82),rgba(11,17,23,.78));
+  border:1px solid var(--edge); border-radius:var(--r);
+  backdrop-filter:blur(16px) saturate(1.1);
+  box-shadow:0 18px 44px -28px #000;
+}
+.panel::before{
+  content:""; position:absolute; left:8px; right:8px; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(205,217,226,.34),transparent);
+}
+.panel>header{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 12px; border-bottom:1px solid var(--edge);
+}
+.panel>header h2{
+  margin:0; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); font-weight:500;
+}
+.panel>header .hint{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.12em; color:var(--ink-4); text-transform:uppercase;
+}
+.panel .body{padding:12px}
+
+/* ---------- module title block (centre stage, top) ---------- */
+.stage-title{
+  pointer-events:none; text-align:center; padding-top:4px;
+  text-shadow:0 2px 24px rgba(0,0,0,.85);
+}
+.stage-title .eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.34em; text-transform:uppercase; color:var(--accent);
+}
+.stage-title h2{
+  margin:4px 0 0; font-family:Archivo,system-ui,sans-serif; font-weight:800;
+  font-size:clamp(24px,4.2vw,46px); letter-spacing:.02em; text-wrap:balance; line-height:1.02;
+}
+.stage-title p{
+  margin:6px auto 0; max-width:62ch; color:var(--ink-2); font-size:13px;
+}
+
+/* ---------- hero readout under the scene ---------- */
+.hero{
+  pointer-events:auto; display:flex; align-items:flex-end; justify-content:center;
+  gap:clamp(12px,2.6vw,34px); flex-wrap:wrap;
+  padding:14px clamp(14px,3vw,30px) 12px;
+  border-radius:var(--r); position:relative;
+  background:linear-gradient(180deg,rgba(6,10,14,0),rgba(6,10,14,.84) 28%,rgba(6,10,14,.92));
+  box-shadow:0 -30px 46px -22px rgba(6,10,14,.95);
+}
+.hero::before{
+  content:""; position:absolute; left:10%; right:10%; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(205,217,226,.18),transparent);
+}
+.hero .unit-group{text-align:center; min-width:96px}
+.hero .cap{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ink-3); white-space:nowrap;
+}
+.hero .val{
+  font-family:Archivo,system-ui,sans-serif; font-weight:700; font-variant-numeric:tabular-nums;
+  font-size:clamp(22px,3.4vw,38px); line-height:1.05; letter-spacing:-.01em;
+  text-shadow:0 0 28px rgba(0,0,0,.9);
+}
+.hero .val small{font-size:.44em; font-weight:600; color:var(--ink-2); margin-left:4px; letter-spacing:.04em}
+.hero .val.is-name{font-size:clamp(15px,1.7vw,22px); font-weight:600; letter-spacing:0; max-width:19ch; line-height:1.2}
+.hero .delta{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px; font-variant-numeric:tabular-nums;
+  margin-top:2px;
+}
+.up{color:var(--crit)} .down{color:var(--good)} .flat{color:var(--ink-3)}
+.good{color:var(--good)} .warn{color:var(--warn)} .crit{color:var(--crit)}
+
+/* ---------- readout rows ---------- */
+.rows{display:flex; flex-direction:column; gap:1px; background:var(--edge); border-radius:2px; overflow:hidden}
+.row{
+  display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px;
+  padding:7px 10px; background:var(--deck); font-size:12.5px;
+}
+.row .k{color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.row .v{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;
+  font-weight:500; color:var(--ink); white-space:nowrap;
+}
+.row .v em{font-style:normal; color:var(--ink-3); font-size:10px; margin-left:3px}
+
+/* severity stripe — state readable without colour alone (stripe + label) */
+.row.sev{border-left:2px solid transparent}
+.row.sev-good{border-left-color:var(--good)}
+.row.sev-warn{border-left-color:var(--warn)}
+.row.sev-crit{border-left-color:var(--crit)}
+
+.chip{
+  display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:99px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.12em; text-transform:uppercase; border:1px solid currentColor;
+}
+.chip i{width:5px;height:5px;border-radius:99px;background:currentColor;flex:0 0 auto}
+
+/* ---------- gauges ---------- */
+.gauges{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:10px}
+.gauge{text-align:center}
+.gauge svg{width:100%; height:auto; max-width:132px; display:block; margin:0 auto}
+.gauge .g-cap{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin-top:2px;
+}
+
+/* ---------- charts ---------- */
+.chart{width:100%; display:block; overflow:visible}
+.chart text{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; fill:var(--ink-3); letter-spacing:.06em}
+.chart .axis-line{stroke:var(--edge-2); stroke-width:1}
+.chart .grid{stroke:var(--edge); stroke-width:1; stroke-dasharray:2 4}
+.chart .lbl-val{fill:var(--ink); font-weight:600; font-size:10px}
+.chart .bench{stroke:var(--warn); stroke-width:1.5; stroke-dasharray:4 3}
+.chart .hit{fill:transparent; cursor:crosshair}
+.chart .crosshair{stroke:var(--ink-4); stroke-width:1; stroke-dasharray:3 3}
+.legend{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:8px}
+.legend span{
+  display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2);
+}
+.legend i{width:9px;height:9px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px var(--deck)}
+.nodata{
+  display:grid; place-items:center; min-height:96px; border:1px dashed var(--edge-2);
+  border-radius:2px; color:var(--ink-3); font-size:12px; text-align:center; padding:12px;
+}
+.tip{
+  position:fixed; z-index:120; pointer-events:none; opacity:0; transition:opacity .12s;
+  background:rgba(8,13,18,.97); border:1px solid var(--edge-2); border-radius:var(--r);
+  padding:8px 10px; font-size:12px; color:var(--ink); min-width:130px;
+  box-shadow:0 14px 34px -14px #000;
+}
+.tip b{display:block; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:500; margin-bottom:5px}
+.tip .tr{display:flex; align-items:center; justify-content:space-between; gap:14px; font-variant-numeric:tabular-nums}
+.tip .tr i{width:8px;height:8px;border-radius:2px;margin-right:6px;display:inline-block}
+.tip .tr span:last-child{font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:500}
+
+/* ---------- ranked bars ---------- */
+.rank{display:flex; flex-direction:column; gap:6px}
+.rank .item{display:grid; grid-template-columns:1fr; gap:3px}
+.rank .top{display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:12px}
+.rank .nm{color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rank .vv{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; color:var(--ink); font-weight:500}
+.rank .track{height:6px; background:var(--deck-3); border-radius:0 3px 3px 0; overflow:hidden}
+.rank .fill{height:100%; border-radius:0 3px 3px 0; transition:width .6s cubic-bezier(.22,1,.36,1)}
+
+/* ---------- telemetry strip ---------- */
+.telem{display:flex; flex-direction:column; gap:8px}
+.telem .t-row{display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center}
+.telem .t-nm{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-3); width:62px}
+.telem canvas{width:100%; height:26px; display:block}
+.telem .t-v{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px;
+  font-variant-numeric:tabular-nums; color:var(--ink); min-width:74px; text-align:right}
+
+/* ============================ DOCK ============================ */
+#dock{
+  position:relative; z-index:40; flex:0 0 auto;
+  display:flex; align-items:center; gap:10px; padding:8px 16px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(0deg,rgba(18,26,35,.96),rgba(10,16,22,.9));
+  border-top:1px solid var(--edge);
+  box-shadow:0 -1px 0 rgba(205,217,226,.06) inset;
+  backdrop-filter:blur(14px); overflow-x:auto; scrollbar-width:none;
+}
+#dock::-webkit-scrollbar{display:none}
+.tabs{display:flex; gap:6px; flex:1 1 auto}
+.tab{
+  position:relative; font:inherit; font-size:11.5px; color:var(--ink-2);
+  background:var(--deck); border:1px solid var(--edge); border-radius:var(--r);
+  padding:7px 12px 7px 10px; cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:8px; transition:color .18s,border-color .18s;
+}
+.tab svg{width:14px;height:14px;display:block;flex:0 0 auto}
+@media (max-width:1320px){ .tab span:last-child{display:none} .tab{padding:7px 9px} }
+@media (max-width:900px){ .tab span:last-child{display:inline} }
+.tab .dotc{width:7px;height:7px;border-radius:99px;flex:0 0 auto}
+.tab:hover{color:var(--ink); border-color:var(--metal-mid)}
+.tab:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.tab[aria-selected="true"]{
+  color:var(--ink); border-color:currentColor;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent);
+}
+.tab[aria-selected="true"]::after{
+  content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:2px;
+  background:currentColor; box-shadow:0 0 12px currentColor;
+}
+#progress{
+  position:absolute; left:0; bottom:0; height:2px; width:0%;
+  background:var(--accent); box-shadow:0 0 10px var(--accent); transition:width .25s linear;
+}
+
+/* ============================ MOTION ============================ */
+.col>.panel{animation:rise .5s cubic-bezier(.22,1,.36,1) both}
+.col>.panel:nth-child(2){animation-delay:.05s}
+.col>.panel:nth-child(3){animation-delay:.1s}
+.col>.panel:nth-child(4){animation-delay:.15s}
+@keyframes rise{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+.stage-title{animation:rise .55s cubic-bezier(.22,1,.36,1) both}
+.hero{animation:rise .6s .08s cubic-bezier(.22,1,.36,1) both}
+#hud.swapping .col,#hud.swapping .stage-title,#hud.swapping .hero{
+  opacity:0; transform:translateY(-10px); transition:opacity .22s,transform .22s;
+}
+
+/* sweep that runs across the stage on a module change */
+#sweep{
+  position:absolute; inset:0; z-index:30; pointer-events:none; opacity:0;
+  background:linear-gradient(105deg,transparent 42%,rgba(205,217,226,.16) 50%,transparent 58%);
+}
+#sweep.go{animation:sweep .62s cubic-bezier(.4,0,.2,1)}
+@keyframes sweep{0%{opacity:0;transform:translateX(-45%)}25%{opacity:1}100%{opacity:0;transform:translateX(45%)}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width:1180px){
+  #hud{grid-template-columns:minmax(230px,1fr) 1.15fr minmax(250px,1fr); gap:10px; padding:10px 12px}
+}
+@media (max-width:900px){
+  body{overflow:auto}
+  #app{height:auto; min-height:100%}
+  #stage{min-height:auto}
+  #gl{position:absolute; top:0; left:0; right:0; width:100%; height:56vh; max-height:460px}
+  #hud{
+    grid-template-columns:1fr; grid-template-rows:auto auto auto;
+    overflow:visible; padding:12px 16px; gap:12px;
+  }
+  .col{overflow:visible}
+  .col-mid{order:-1; min-height:50vh; justify-content:flex-start; gap:18px}
+  .col-mid .hero{margin-top:auto}
+  #dock{position:sticky; bottom:0}
+  .rail-spacer{flex-basis:100%; min-width:0; height:0}
+}
+@media (max-width:560px){
+  .mark h1{font-size:13px; letter-spacing:.1em}
+  .mark .sub{display:none}
+  select{min-width:110px; font-size:12px}
+  .hero{gap:14px}
+  #gl{height:52vh; max-height:380px}
+}
+
+/* screen-reader-only */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+table.data{width:100%; border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums}
+table.data th,table.data td{padding:4px 7px; border-bottom:1px solid var(--edge); text-align:right; white-space:nowrap}
+table.data th:first-child,table.data td:first-child{text-align:left}
+table.heat td{border-bottom:none;padding:0 1px}
+table.heat th{position:sticky;top:0;background:var(--deck);z-index:1}
+table.heat td:first-child{padding:2px 8px 2px 0;color:var(--ink-2)}
+table.data th{color:var(--ink-3); font-weight:500; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:9px; letter-spacing:.12em; text-transform:uppercase}
+.scrollx{overflow-x:auto}
+details.tbl{margin-top:10px}
+details.tbl>summary{
+  cursor:pointer; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); list-style:none;
+}
+details.tbl>summary::-webkit-details-marker{display:none}
+details.tbl>summary::before{content:"▸ "; color:var(--ink-4)}
+details.tbl[open]>summary::before{content:"▾ "}
+details.tbl>summary:hover{color:var(--ink-2)}
+/* ============================ ADDITIONS FOR THE TWO-WORKBOOK DECK ============================ */
+[hidden]{display:none!important}
+.field select#sel-book{min-width:200px}
+@media (max-width:1680px){ #rail .btn .lbl{display:none} #rail .btn{padding:7px 9px} .clock{display:none} }
+.hero{gap:clamp(10px,2vw,28px)}
+.hero .val{font-size:clamp(20px,2.7vw,34px)}
+.hero .unit-group{min-width:84px}
+.field select#sel-ent{min-width:160px}
+.rank .item[data-ent]{cursor:pointer}
+.rank .item[data-ent]:hover .nm{color:var(--ink)}
+.rank .item.sel .nm{color:var(--ink); font-weight:600}
+.rank .item.sel .nm::before{content:"◆ "; color:var(--accent)}
+table.data.score tbody tr{cursor:pointer}
+table.data.score tbody tr:hover td{background:rgba(255,255,255,.03)}
+table.data.score tbody tr.sel td{background:rgba(255,255,255,.07); color:var(--ink); font-weight:600}
+table.data.score tbody tr.tot td{color:var(--ink); font-weight:600; border-top:1px solid var(--edge-2)}
+table.data.score td{color:var(--ink-2)}
+.findings{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px; font-size:12px; color:var(--ink-2); line-height:1.5}
+.scope{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
+.btn.file{position:relative}
+.btn.file input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%}
+
+/* sheet viewer overlay */
+#sheets{
+  position:fixed; inset:0; z-index:90; display:flex; flex-direction:column;
+  background:rgba(6,10,14,.82); backdrop-filter:blur(10px);
+  padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(14px + env(safe-area-inset-bottom,0px));
+  animation:rise .35s cubic-bezier(.22,1,.36,1) both;
+}
+#sheets .panel{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+#sheets .tools{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:12px; border-bottom:1px solid var(--edge)}
+#sheets input[type=search]{
+  font:inherit; font-size:13px; color:var(--ink); background:var(--deck-2); border:1px solid var(--edge-2);
+  border-radius:var(--r); padding:6px 10px; width:min(320px,100%);
+}
+#sheets input[type=search]:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+#sheet-wrap{flex:1 1 auto; min-height:0; overflow:auto}
+#sheet-wrap table{border-collapse:collapse; font-size:11.5px; font-variant-numeric:tabular-nums}
+#sheet-wrap th,#sheet-wrap td{padding:4px 8px; border:1px solid var(--edge); white-space:nowrap; max-width:380px; overflow:hidden; text-overflow:ellipsis; text-align:left; color:var(--ink-2)}
+#sheet-wrap thead th{position:sticky; top:0; z-index:1; background:var(--deck-2); color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:500; font-size:9.5px}
+#sheet-wrap td.rn,#sheet-wrap th.rn{position:sticky; left:0; background:var(--deck-2); color:var(--ink-3); text-align:right; font-family:"IBM Plex Mono",ui-monospace,monospace}
+#sheet-wrap td.n{text-align:right; font-family:"IBM Plex Mono",ui-monospace,monospace; color:var(--ink)}
+#sheet-wrap mark{background:rgba(224,166,58,.35); color:var(--ink)}
+#toast{
+  position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:130;
+  background:rgba(8,13,18,.97); border:1px solid var(--edge-2); border-radius:var(--r); padding:8px 14px; font-size:12.5px; color:var(--ink);
+  box-shadow:0 14px 34px -14px #000;
+}
+@media (max-width:560px){ .field select#sel-book,.field select#sel-ent{min-width:0; max-width:calc(100vw - 40px)} }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <header id="rail">
+    <div class="mark">
+      <span class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0b1116" stroke-width="1.6">
+          <rect x="5" y="5" width="14" height="14"/>
+          <rect x="5" y="5" width="14" height="14" transform="rotate(45 12 12)"/>
+        </svg>
+      </span>
+      <div>
+        <h1>Command Deck</h1>
+        <div class="sub" id="mark-sub">Facilities MIS · 2026</div>
+      </div>
+    </div>
+
+    <div class="selects">
+      <div class="field">
+        <label for="sel-book">Workbook</label>
+        <select id="sel-book"></select>
+      </div>
+      <div class="field">
+        <label for="sel-month">Reporting period</label>
+        <select id="sel-month"></select>
+      </div>
+      <div class="field">
+        <label for="sel-ent" id="lbl-ent">School</label>
+        <select id="sel-ent"></select>
+      </div>
+    </div>
+
+    <span class="rail-spacer"></span>
+
+    <span class="live" id="live-badge" title="Sub-minute telemetry is modelled from the selected period's metered totals. It shows the shape of demand, not a meter read.">
+      <i></i> Live feed
+    </span>
+
+    <div class="clock" aria-hidden="true">
+      <b id="clock-time">--:--:--</b>
+      <span id="clock-date">—</span>
+    </div>
+
+    <button class="btn" id="btn-sheets" title="Browse every sheet of this workbook (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>
+      <span class="lbl">Sheets</span>
+    </button>
+    <label class="btn file" title="Add another MIS workbook (.xlsx) for this session">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="lbl">Workbook</span>
+      <input id="upload" type="file" accept=".xlsx,.xlsm,.xls" multiple>
+    </label>
+    <button class="btn" id="btn-auto" aria-pressed="false" title="Auto-advance the modules (A)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18l15-9z"/></svg>
+      <span id="auto-label">Present</span>
+    </button>
+    <button class="btn" id="btn-full" title="Full screen (F)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span class="sr">Full screen</span>
+    </button>
+  </header>
+
+  <main id="stage">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div id="glfallback" hidden>3-D stage unavailable in this browser. Every figure below is still live.</div>
+    <div id="sweep" aria-hidden="true"></div>
+
+    <div id="hud">
+      <section class="col col-left" id="col-left" aria-live="polite"></section>
+
+      <section class="col col-mid">
+        <div class="stage-title">
+          <div class="eyebrow" id="mod-eyebrow">Loading</div>
+          <h2 id="mod-title">Reading workbooks…</h2>
+          <p id="mod-lede"></p>
+        </div>
+        <div class="hero" id="hero"></div>
+      </section>
+
+      <section class="col col-right" id="col-right"></section>
+    </div>
+  </main>
+
+  <nav id="dock" aria-label="Modules">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="progress"></div>
+  </nav>
+
+  <div class="tip" id="tip" role="status" aria-live="off"></div>
+
+  <div id="sheets" hidden>
+    <section class="panel">
+      <header><h2>Workbook sheets</h2><button class="btn" id="btn-close-sheets" title="Close (Esc)">Close</button></header>
+      <div class="tools">
+        <div class="field"><label for="sel-sheet">Sheet</label><select id="sel-sheet"></select></div>
+        <div class="field" style="flex:1 1 220px"><label for="sheet-filter">Filter rows</label><input id="sheet-filter" type="search" placeholder="Type to show matching rows"></div>
+        <span class="hint scope" id="sheet-info"></span>
+      </div>
+      <div id="sheet-wrap"><table id="sheet"></table></div>
+    </section>
+  </div>
+  <div id="toast" hidden></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="mis-engine.js"></script>
+<script src="workbooks.js"></script>
+<script src="stage3d.js"></script>
+<script src="deck.js"></script>
+</body>
+</html>
